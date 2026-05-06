@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CES 2027 ASSA Sessions — Paper Review Portal</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<style>
+  :root {
+    --navy: #002878;
+    --gold: #B08D22;
+    --green: #1a7a3a;
+    --red: #b52a2a;
+    --orange: #c55d00;
+    --gray: #f4f5f7;
+    --border: #dce1e8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px;
+         background: #f0f2f5; color: #222; display: flex; flex-direction: column; height: 100vh; }
+  /* ── Header ── */
+  header { background: var(--navy); color: #fff; padding: 12px 20px;
+            display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header .subtitle { font-size: 12px; opacity: .75; }
+  .header-stats { margin-left: auto; display: flex; gap: 16px; font-size: 12px; }
+  .stat-box { text-align: center; }
+  .stat-num { font-size: 20px; font-weight: 700; display: block; }
+  /* ── Layout ── */
+  .main { display: flex; flex: 1; overflow: hidden; }
+  /* ── Sidebar ── */
+  .sidebar { width: 220px; background: #fff; border-right: 1px solid var(--border);
+              padding: 16px 12px; overflow-y: auto; flex-shrink: 0; }
+  .sidebar h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+                 color: #666; margin-bottom: 8px; margin-top: 16px; }
+  .sidebar h3:first-child { margin-top: 0; }
+  .filter-btn { display: block; width: 100%; text-align: left; padding: 6px 10px;
+                 border-radius: 6px; border: none; background: none; cursor: pointer;
+                 font-size: 13px; color: #333; margin-bottom: 2px; transition: background .15s; }
+  .filter-btn:hover { background: #eef2fb; }
+  .filter-btn.active { background: var(--navy); color: #fff; font-weight: 600; }
+  .filter-btn .cnt { float: right; opacity: .6; font-size: 12px; }
+  .search-wrap { margin-bottom: 8px; }
+  .search-wrap input { width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+                         border-radius: 6px; font-size: 13px; outline: none; }
+  .search-wrap input:focus { border-color: var(--navy); }
+  /* ── Cards pane ── */
+  .cards-pane { flex: 1; overflow-y: auto; padding: 16px; }
+  .cards-grid { display: grid; gap: 12px; }
+  /* ── Card ── */
+  .card { background: #fff; border-radius: 8px; border: 1px solid var(--border);
+           padding: 14px 16px; transition: box-shadow .15s; }
+  .card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  .card-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .card-id { font-size: 11px; color: #888; font-weight: 600; white-space: nowrap; margin-top: 2px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--navy); flex: 1; line-height: 1.35; }
+  .card-authors { font-size: 12px; color: #555; margin-bottom: 6px; }
+  .card-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+            font-weight: 600; border: 1px solid; }
+  .badge-organized { background: #e8f4e8; color: #1a7a3a; border-color: #a8d8a8; }
+  .badge-proposed  { background: #fff8e1; color: #8a6200; border-color: #f5c842; }
+  .badge-individual { background: #f0f4ff; color: #2c4ba0; border-color: #b0c0f0; }
+  .badge-group { background: #f5f0fa; color: #6a0dad; border-color: #d0b8ea; font-weight: 400; }
+  .card-keywords { font-size: 11px; color: #888; margin-bottom: 8px; }
+  .card-footer { display: flex; align-items: center; gap: 8px; }
+  .status-select { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+                    font-size: 12px; font-weight: 600; cursor: pointer; outline: none; flex-shrink: 0; }
+  .status-select.s-pending    { background: #f5f5f5; color: #555; }
+  .status-select.s-accept     { background: #e8f4e8; color: var(--green); border-color: #a8d8a8; }
+  .status-select.s-poster     { background: #e8f0ff; color: #2c4ba0; border-color: #b0c0f0; }
+  .status-select.s-waitlist   { background: #fff8e1; color: #8a6200; border-color: #f5c842; }
+  .status-select.s-reject     { background: #ffeaea; color: var(--red); border-color: #f5b8b8; }
+  .status-select.s-withdrawn  { background: #f0f0f0; color: #888; border-color: #ccc; }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+  .sync-dot.synced  { background: #4caf50; }
+  .sync-dot.syncing { background: #ff9800; animation: pulse .8s infinite; }
+  .sync-dot.error   { background: #f44336; }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+  /* ── Toolbar ── */
+  .toolbar { background: #fff; border-bottom: 1px solid var(--border); padding: 10px 16px;
+              display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+  .toolbar button { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+                     background: #fff; cursor: pointer; font-size: 13px; font-weight: 500;
+                     transition: background .15s; }
+  .toolbar button:hover { background: #eef2fb; }
+  .toolbar button.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .toolbar button.primary:hover { background: #001c5c; }
+  .sort-label { font-size: 12px; color: #666; margin-left: auto; }
+  .count-label { font-size: 13px; color: #444; }
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 48px 24px; color: #aaa; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>CES 2027 ASSA Sessions — Paper Review Portal</h1>
+    <div class="subtitle">Chinese Economists Society · ASSA 2027 · San Francisco, CA</div>
+  </div>
+  <div class="header-stats">
+    <div class="stat-box"><span class="stat-num" id="statTotal">0</span>Total</div>
+    <div class="stat-box"><span class="stat-num" id="statAccept" style="color:#6fcf8a">0</span>Accepted</div>
+    <div class="stat-box"><span class="stat-num" id="statReject" style="color:#f08080">0</span>Rejected</div>
+    <div class="stat-box"><span class="stat-num" id="statPending" style="color:#ffd166">0</span>Pending</div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <button class="primary" onclick="exportCSV()">Export CSV</button>
+  <button onclick="exportAcceptedCSV()">Export Accepted</button>
+  <button onclick="resetAllStatus()" style="color:#b52a2a">Reset All</button>
+  <div class="count-label"><span id="showingCount">0</span> papers shown</div>
+  <div class="sort-label">
+    Sort: <select id="sortSelect" onchange="renderCards()" style="border:1px solid #dce1e8;border-radius:4px;padding:3px 6px;font-size:12px;">
+      <option value="id">ID</option>
+      <option value="title">Title</option>
+      <option value="status">Status</option>
+      <option value="type">Type</option>
+    </select>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Search title / author / keyword…" oninput="renderCards()">
+    </div>
+
+    <h3>Status</h3>
+    <button class="filter-btn active" data-filter="status:all" onclick="setFilter(this)">All <span class="cnt" id="cntAll">0</span></button>
+    <button class="filter-btn" data-filter="status:Pending" onclick="setFilter(this)">Pending <span class="cnt" id="cntPending">0</span></button>
+    <button class="filter-btn" data-filter="status:Accept" onclick="setFilter(this)">Accept (Oral) <span class="cnt" id="cntAccept">0</span></button>
+    <button class="filter-btn" data-filter="status:Poster" onclick="setFilter(this)">Accept (Poster) <span class="cnt" id="cntPoster">0</span></button>
+    <button class="filter-btn" data-filter="status:Waitlist" onclick="setFilter(this)">Waitlist <span class="cnt" id="cntWaitlist">0</span></button>
+    <button class="filter-btn" data-filter="status:Reject" onclick="setFilter(this)">Reject <span class="cnt" id="cntReject">0</span></button>
+    <button class="filter-btn" data-filter="status:Withdrawn" onclick="setFilter(this)">Withdrawn <span class="cnt" id="cntWithdrawn">0</span></button>
+
+    <h3>Type</h3>
+    <button class="filter-btn" data-filter="type:all" onclick="setFilter(this)">All Types</button>
+    <button class="filter-btn" data-filter="type:Organized" onclick="setFilter(this)">Organized Session</button>
+    <button class="filter-btn" data-filter="type:Proposed" onclick="setFilter(this)">Proposed Session</button>
+    <button class="filter-btn" data-filter="type:Individual" onclick="setFilter(this)">Individual Submission</button>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+    <div class="cards-pane" id="cardsPane">
+      <div class="cards-grid" id="cardsGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Firebase config ──────────────────────────────────────────────────────────
+const FB_CONFIG = {
+  apiKey: "AIzaSyBPLEcBHBNdbbzxm2EUj_jfPy9h5a7oFHQ",
+  authDomain: "ces2026-selection.firebaseapp.com",
+  databaseURL: "https://ces2026-selection-default-rtdb.firebaseio.com",
+  projectId: "ces2026-selection",
+  storageBucket: "ces2026-selection.appspot.com",
+  messagingSenderId: "738012340527",
+  appId: "1:738012340527:web:9c98f9c8cf7c3cf0a98fb7"
+};
+firebase.initializeApp(FB_CONFIG);
+const db = firebase.database();
+const FB_NODE = 'ces2027-assa';
+
+// ── Paper data ───────────────────────────────────────────────────────────────
+const PAPERS = [
+  {
+    "id": "P001",
+    "title": "The Ripple Effects of China's College Expansion on American Universities",
+    "authors": "Ruixue Jia (UCSD); Gaurav Khanna (UCSD); Hongbin Li (Stanford University); Yuli Xu (Stanford University)",
+    "presenter": "Yuli Xu",
+    "email": "yulixu.econ@gmail.com",
+    "affiliation": "Stanford University",
+    "type": "Organized",
+    "group": "Causal Impacts of Education Policies and Practices",
+    "organizer": "Yang Song (Colgate University)",
+    "chair": "Paul Glewwe (University of Minnesota)",
+    "keywords": "higher education; college expansion; China; international students"
+  },
+  {
+    "id": "P002",
+    "title": "Teacher Value Added and Classroom Practices in Vietnam",
+    "authors": "Pedro Carneiro (UCL/IFS/CEMMAP); Paul Glewwe (University of Minnesota); Anusha Guha (IFS); Sonya Krutikova (IFS / University of Manchester)",
+    "presenter": "Paul Glewwe",
+    "email": "pglewwe@umn.edu",
+    "affiliation": "University of Minnesota",
+    "type": "Organized",
+    "group": "Causal Impacts of Education Policies and Practices",
+    "organizer": "Yang Song (Colgate University)",
+    "chair": "Paul Glewwe (University of Minnesota)",
+    "keywords": "teacher quality; value added; Vietnam; education"
+  },
+  {
+    "id": "P003",
+    "title": "Beyond Compulsory Schooling: Parental Education and Child Health in China",
+    "authors": "Shiyu Cheng (Liaoning University); Xiaozhou Ding (South Dakota State University); Yaxiang Song (Creighton University)",
+    "presenter": "Yaxiang Song",
+    "email": "yaxiangsong@creighton.edu",
+    "affiliation": "Creighton University",
+    "type": "Organized",
+    "group": "Causal Impacts of Education Policies and Practices",
+    "organizer": "Yang Song (Colgate University)",
+    "chair": "Paul Glewwe (University of Minnesota)",
+    "keywords": "parental education; child health; China; schooling"
+  },
+  {
+    "id": "P004",
+    "title": "Returns to Elite Colleges in China: Evidence from a Regression Discontinuity Design",
+    "authors": "Le Kang (Nanjing University); Guofeng Pan (Renmin University of China); Yang Song (Colgate University)",
+    "presenter": "Yang Song",
+    "email": "ysong@colgate.edu",
+    "affiliation": "Colgate University",
+    "type": "Organized",
+    "group": "Causal Impacts of Education Policies and Practices",
+    "organizer": "Yang Song (Colgate University)",
+    "chair": "Paul Glewwe (University of Minnesota)",
+    "keywords": "returns to education; elite college; China; regression discontinuity"
+  },
+  {
+    "id": "P005",
+    "title": "Identifying Hidden Mathematical Talent: Experimental Evidence from Rural China",
+    "authors": "Stephen L. DesJardins (University of Michigan); Mengying Peng (Hitotsubashi University); Xiaoyang Ye (Amazon/Yu Soon Lab)",
+    "presenter": "Mengying Peng",
+    "email": "mengying.peng@r.hit-u.ac.jp",
+    "affiliation": "Hitotsubashi University",
+    "type": "Organized",
+    "group": "Causal Impacts of Education Policies and Practices",
+    "organizer": "Yang Song (Colgate University)",
+    "chair": "Paul Glewwe (University of Minnesota)",
+    "keywords": "STEM talent; rural China; field experiment; information frictions"
+  },
+  {
+    "id": "P006",
+    "title": "Majority vs. Minority Framing of Peer Information: Evidence from a Field Experiment on Property Fee Payments",
+    "authors": "Chelsea Tianyi Che; Juanjuan Meng; [co-authors]",
+    "presenter": "Chelsea Tianyi Che",
+    "email": "",
+    "affiliation": "",
+    "type": "Proposed",
+    "group": "Field Experiments on Social Interactions and Gender (proposed by Aurelia Di)",
+    "organizer": "Aurelia Aochun Di (UCLA Anderson)",
+    "chair": "",
+    "keywords": "public goods; field experiment; peer information; social norms"
+  },
+  {
+    "id": "P007",
+    "title": "Gender Mingling and Dating Market Dynamics: Evidence from a Sex Education Field Experiment",
+    "authors": "Zhihan Cui; Fangwen Lu; Xuezheng Qin; Jinxian Yao; [co-authors]",
+    "presenter": "Fangwen Lu",
+    "email": "",
+    "affiliation": "",
+    "type": "Proposed",
+    "group": "Field Experiments on Social Interactions and Gender (proposed by Aurelia Di)",
+    "organizer": "Aurelia Aochun Di (UCLA Anderson)",
+    "chair": "",
+    "keywords": "dating market; gender; field experiment; sex education"
+  },
+  {
+    "id": "P008",
+    "title": "Peer Personality, Perceptions of Gender Inequality, and Academic Performance",
+    "authors": "Aurelia Aochun Di (UCLA Anderson)",
+    "presenter": "Aurelia Aochun Di",
+    "email": "",
+    "affiliation": "UCLA Anderson School of Management",
+    "type": "Proposed",
+    "group": "Field Experiments on Social Interactions and Gender (proposed by Aurelia Di)",
+    "organizer": "Aurelia Aochun Di (UCLA Anderson)",
+    "chair": "",
+    "keywords": "peer effects; personality; gender inequality; academic performance"
+  },
+  {
+    "id": "P009",
+    "title": "When the Opportunity Presents: Female Labor Reaction to Gender Quota on Boards",
+    "authors": "Jing Li (Zhejiang University); Man Zhang (NUS / Institute of Real Estate and Urban Studies)",
+    "presenter": "Jing Li",
+    "email": "jingli@nus.edu.sg",
+    "affiliation": "National University of Singapore",
+    "type": "Proposed",
+    "group": "Gender, Health, and Labor Markets (proposed by Jing Li)",
+    "organizer": "Jing Li (NUS)",
+    "chair": "",
+    "keywords": "gender quota; board diversity; human capital; female labor"
+  },
+  {
+    "id": "P010",
+    "title": "Local Health Rules, Distant Economic Effects: Public-Health Spillovers Through Family Ties",
+    "authors": "Haiqiang Chen (Shenzhen University); Jing Li (Zhejiang University); Wenlan Qian (NUS Business School)",
+    "presenter": "Jing Li",
+    "email": "jingli@nus.edu.sg",
+    "affiliation": "National University of Singapore",
+    "type": "Proposed",
+    "group": "Gender, Health, and Labor Markets (proposed by Jing Li)",
+    "organizer": "Jing Li (NUS)",
+    "chair": "",
+    "keywords": "public health; spillovers; social networks; consumer spending"
+  },
+  {
+    "id": "P011",
+    "title": "Beyond Fares: Multimarket Contact and Capacity Discipline in Airline Markets",
+    "authors": "Chen Zhang (University of California, Irvine)",
+    "presenter": "Chen Zhang",
+    "email": "chenz8@uci.edu",
+    "affiliation": "University of California, Irvine",
+    "type": "Proposed",
+    "group": "Industrial Organization: Airline Markets (proposed by Chen Zhang)",
+    "organizer": "Chen Zhang (UC Irvine)",
+    "chair": "",
+    "keywords": "multimarket contact; airline; tacit collusion; non-price competition"
+  },
+  {
+    "id": "P012",
+    "title": "Beyond Price Effects: A Dynamic Structural Analysis of Airline Mergers with Endogenous Pricing and Flight Frequency",
+    "authors": "Chen Zhang (University of California, Irvine)",
+    "presenter": "Chen Zhang",
+    "email": "chenz8@uci.edu",
+    "affiliation": "University of California, Irvine",
+    "type": "Proposed",
+    "group": "Industrial Organization: Airline Markets (proposed by Chen Zhang)",
+    "organizer": "Chen Zhang (UC Irvine)",
+    "chair": "",
+    "keywords": "airline mergers; consumer welfare; structural model; flight frequency"
+  },
+  {
+    "id": "P013",
+    "title": "Dynamic Effects of the EU Carbon Border Adjustment Mechanism",
+    "authors": "Wei Wang (The Ohio State University); Yongyang Cai (The Ohio State University)",
+    "presenter": "Wei Wang",
+    "email": "",
+    "affiliation": "The Ohio State University",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "CBAM; Climate Policy; International Trade"
+  },
+  {
+    "id": "P014",
+    "title": "Demographics and Elite Persistence: Evidence from China's Fertility Restrictions",
+    "authors": "Qingyuan Chai (NYU Shanghai); Justin Jihao Hong (HKUST, GZ)",
+    "presenter": "Justin Jihao Hong",
+    "email": "",
+    "affiliation": "HKUST (GZ)",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "fertility; elite; China; intergenerational persistence"
+  },
+  {
+    "id": "P015",
+    "title": "Financial Technology Spillover and Investment Behavior: Financial Literacy, Risk Taking, and Portfolio Choice",
+    "authors": "Jinwei (Will) Zhang (University of Washington); Pengyu Wang (University of Washington / Foster School)",
+    "presenter": "Jinwei (Will) Zhang",
+    "email": "liwzhang@uw.edu",
+    "affiliation": "University of Washington",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "Digital finance; financial market participation; China Household Finance Survey"
+  },
+  {
+    "id": "P016",
+    "title": "Geopolitical Conflict and Trade Flows: The Impact of the U.S.–Israel–Iran War on China's Trade and Supply Chains",
+    "authors": "Temitope Titus Abodunde (University of Lagos); Olufemi Saibu (University of Lagos)",
+    "presenter": "Temitope Titus Abodunde",
+    "email": "",
+    "affiliation": "University of Lagos",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "Geopolitical Risk; Supply Chain Disruptions; China Trade Dynamics"
+  },
+  {
+    "id": "P017",
+    "title": "Peer Effects of Fetal Origins: Evidence from Randomized Classroom Assignments in China",
+    "authors": "Jingwen Dong (Zhejiang University); Chenye Gong (Renmin University of China); Yinghao Pan (Renmin University of China); Yuan Wang (Renmin University of China)",
+    "presenter": "Jingwen Dong",
+    "email": "12401011@zju.edu.cn",
+    "affiliation": "Zhejiang University",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "Fetal Origins Hypothesis; Birthweight; Peer effect"
+  },
+  {
+    "id": "P018",
+    "title": "Marriage Squeeze and Education Choice: Evidence from China's Imbalanced Sex Ratios",
+    "authors": "Shuning Li (University of Western Ontario)",
+    "presenter": "Shuning Li",
+    "email": "sli2744@uwo.ca",
+    "affiliation": "University of Western Ontario",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "Marriage squeeze; Educational investment; Sex ratios"
+  },
+  {
+    "id": "P019",
+    "title": "When Ambitions Align: Peer Parental Aspiration and Student Achievement",
+    "authors": "Yuzhi Zhou",
+    "presenter": "Yuzhi Zhou",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "peer effects; parental aspirations; student achievement"
+  },
+  {
+    "id": "P020",
+    "title": "Anonymization and Information Loss",
+    "authors": "Ke Wu; Baozhong Yang; Zhenkun Ying; Dexin Zhou",
+    "presenter": "Ke Wu",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "anonymization; information; privacy"
+  },
+  {
+    "id": "P021",
+    "title": "Attention and Green Delivery",
+    "authors": "Te Bao; Yeow Hwee Chua; Xuan Luo; Ruge Zhang; Xu Zhang",
+    "presenter": "Te Bao",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "attention; green transition; sustainable choice; Singapore"
+  },
+  {
+    "id": "P022",
+    "title": "Running to Stand Still: Shadow Education and Human Capital Formation",
+    "authors": "Binkai Chen; Rui Du; Weizeng Sun",
+    "presenter": "Binkai Chen",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "shadow education; tutoring; human capital; China"
+  },
+  {
+    "id": "P023",
+    "title": "Market-Oriented Industrial Policy and Labor Demand: Evidence from Government Guidance Funds in China",
+    "authors": "Wenzhe Zhao; Man Zhu",
+    "presenter": "Wenzhe Zhao",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "industrial policy; government guidance funds; labor demand; China"
+  },
+  {
+    "id": "P024",
+    "title": "The Influence of Adult Children's Education on the Health Behavior of Parents",
+    "authors": "Chen An (Zhongnan University of Economics and Law); Zhaoxue Ci",
+    "presenter": "Chen An",
+    "email": "",
+    "affiliation": "Zhongnan University of Economics and Law",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "intergenerational; health behavior; elderly; China"
+  },
+  {
+    "id": "P025",
+    "title": "Thin Sets Are Not Equally Thin: Minimax Learning of Submanifold Integrals",
+    "authors": "Xiaohong Chen (Yale University); Wayne Yuan Gao (University of Pennsylvania)",
+    "presenter": "Wayne Yuan Gao",
+    "email": "waynegao@upenn.edu",
+    "affiliation": "University of Pennsylvania",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "submanifold; minimax rate; nonparametric estimation; econometrics"
+  },
+  {
+    "id": "P026",
+    "title": "Green Gains from Connectivity: Highway Expansion and Forest Quality",
+    "authors": "Xingjian Ding; Yumin Hu",
+    "presenter": "Xingjian Ding",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "highway; forest quality; environment; infrastructure"
+  },
+  {
+    "id": "P027",
+    "title": "Expressway Expansion, Export Competition, and Spatial Divergence",
+    "authors": "Longzhou Wang; Xiaoying Wang",
+    "presenter": "Longzhou Wang",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "expressway; exports; spatial divergence; infrastructure"
+  },
+  {
+    "id": "P028",
+    "title": "IPO Reform and Venture Capital: Evidence from China",
+    "authors": "Celine (Yue) Fei; Ulrich Hege; Xiao Jia",
+    "presenter": "Celine (Yue) Fei",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "IPO reform; venture capital; China; financial markets"
+  },
+  {
+    "id": "P029",
+    "title": "Monetary Policy Communication under Learning and Strategic Motives",
+    "authors": "Hubert Fok",
+    "presenter": "Hubert Fok",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "monetary policy; communication; central bank; learning"
+  },
+  {
+    "id": "P030",
+    "title": "From Gray Income to Maternal and Infant Health Gains: The Impact of Anti-Corruption Inspections in Chinese Hospitals",
+    "authors": "Ruiqi Ding; Aljoscha Janssen; Jessica Ya Sun; Xuan Zhang",
+    "presenter": "Ruiqi Ding",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "anti-corruption; maternal health; hospitals; China"
+  },
+  {
+    "id": "P031",
+    "title": "From In-Sample Monotonicity to Out-of-Sample Returns",
+    "authors": "Jiawei Fan (Brandeis University)",
+    "presenter": "Jiawei Fan",
+    "email": "",
+    "affiliation": "Brandeis University",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "asset pricing; factor models; out-of-sample; stock returns"
+  },
+  {
+    "id": "P032",
+    "title": "High-Frequency Price Signals, Thermal Flexibility, and Renewable Integration: Evidence from China's Electricity Market Reform",
+    "authors": "Min Wang (Peking University); Yutong Yang (Peking University); Chi Zhang (Peking University); Wende Zhang (Peking University)",
+    "presenter": "Min Wang",
+    "email": "",
+    "affiliation": "Peking University",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "electricity market; renewable energy; price signals; China"
+  },
+  {
+    "id": "P033",
+    "title": "Productivity Externalities of Working from Home: Welfare and Policy Implications",
+    "authors": "Huilin Zhang",
+    "presenter": "Huilin Zhang",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "working from home; productivity; externalities; welfare"
+  },
+  {
+    "id": "P034",
+    "title": "Partisan Borders: Political Ideology and Frictions in Interstate Job-to-Job Flows",
+    "authors": "[Author information from paper file]",
+    "presenter": "",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "political partisanship; job mobility; labor market frictions; polarization"
+  },
+  {
+    "id": "P035",
+    "title": "Large Language Models, Price Discovery, and the Limits to Adoption",
+    "authors": "Jiawei Wang",
+    "presenter": "Jiawei Wang",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "LLM; price discovery; AI adoption; financial markets"
+  },
+  {
+    "id": "P036",
+    "title": "Counter-Cyclical Market Price Efficiency and Stock Liquidity",
+    "authors": "[Author information from paper file]",
+    "presenter": "",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "market efficiency; stock liquidity; business cycle; China"
+  },
+  {
+    "id": "P037",
+    "title": "The Long Shadow of Loyalty: Political Stigma and Bureaucratic Careers in Ming China",
+    "authors": "Chen Chen; Zhenyu Gong",
+    "presenter": "Chen Chen",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "political stigma; bureaucracy; Ming China; career outcomes"
+  },
+  {
+    "id": "P038",
+    "title": "Market Contraction and Innovation Divergence: The Impact of the US–China Trade War on Chinese Innovation",
+    "authors": "Xiao Ma; Yueyuan Ma; Hanyi Tao; Yiran Zhang",
+    "presenter": "Xiao Ma",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "trade war; innovation; China; US tariffs"
+  },
+  {
+    "id": "P039",
+    "title": "Revealing Hidden Liabilities: Environmental Activism and Capital Structure",
+    "authors": "[Author information from paper file]",
+    "presenter": "",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "NGO; environmental activism; capital structure; corporate finance"
+  },
+  {
+    "id": "P040",
+    "title": "A Unified Credit Expansion Theory on Housing Cycle: Causal Evidence for Within- and Cross-Metro Patterns",
+    "authors": "Bo Li",
+    "presenter": "Bo Li",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "housing cycle; credit expansion; real estate; boom-bust"
+  },
+  {
+    "id": "P041",
+    "title": "Racial Disparities in the U.S. Mortgage Market: Evidence from Data Privacy Legislation",
+    "authors": "Xiangyu Lin (Nankai University); S. Sarah Zhang (University of Manchester)",
+    "presenter": "Xiangyu Lin",
+    "email": "xiangyu.xl.lin@gmail.com",
+    "affiliation": "Nankai University",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "racial disparities; mortgage market; data privacy; lending"
+  },
+  {
+    "id": "P042",
+    "title": "Repeated Cheap Talk with Disclose Signal History",
+    "authors": "Haohui Wang",
+    "presenter": "Haohui Wang",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "cheap talk; information disclosure; credible communication; mechanism design"
+  },
+  {
+    "id": "P043",
+    "title": "Fuel Costs, Market Power and Network Effects: A Structural Analysis of Sustainable Aviation Fuel Mandates",
+    "authors": "Shengzhuo Yuan",
+    "presenter": "Shengzhuo Yuan",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "sustainable aviation fuel; market power; network effects; structural analysis"
+  },
+  {
+    "id": "P044",
+    "title": "QE Without RE: Balance-Sheet Interventions and Expectational Coordination under Imperfect Knowledge",
+    "authors": "Tengyuan Liang (University of California, Irvine)",
+    "presenter": "Tengyuan Liang",
+    "email": "",
+    "affiliation": "University of California, Irvine",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "quantitative easing; rational expectations; monetary policy; expectational coordination"
+  },
+  {
+    "id": "P045",
+    "title": "Transmission of Tariff Shocks via Institutional Investors",
+    "authors": "Yiqun Li (Boston University Questrom School of Business)",
+    "presenter": "Yiqun Li",
+    "email": "",
+    "affiliation": "Boston University",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "tariff shocks; institutional investors; trade policy; financial markets"
+  },
+  {
+    "id": "P046",
+    "title": "Demand Spillovers from Star Employees: Evidence from Intra-Firm Reassignment Across Brokerage Stores",
+    "authors": "Wang Ruiqi (National University of Singapore)",
+    "presenter": "Wang Ruiqi",
+    "email": "",
+    "affiliation": "National University of Singapore",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "star employees; demand spillovers; firm performance; brokerage"
+  },
+  {
+    "id": "P047",
+    "title": "Matching Efficiency and Unemployment Fluctuations",
+    "authors": "Wenxuan Wang (Toulouse School of Economics)",
+    "presenter": "Wenxuan Wang",
+    "email": "wenxuan.wang@tse-fr.eu",
+    "affiliation": "Toulouse School of Economics",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "matching efficiency; unemployment; business cycle; labor market"
+  },
+  {
+    "id": "P048",
+    "title": "War and Human Capital Accumulation: Evidence from the Sino-Japanese War",
+    "authors": "Jinyuan Liu (CUFE)",
+    "presenter": "Jinyuan Liu",
+    "email": "",
+    "affiliation": "Central University of Finance and Economics",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "war; human capital; Sino-Japanese War; historical economics"
+  },
+  {
+    "id": "P049",
+    "title": "Housing Markets and the Belief in Opportunity",
+    "authors": "Yeow Hwee Chua; Wenyi Zhang",
+    "presenter": "Wenyi Zhang",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "housing; beliefs; opportunity; wealth inequality"
+  },
+  {
+    "id": "P050",
+    "title": "How College Enrollment Limits Household Responses to Work Incentives: Evidence from a Cash Transfer Experiment",
+    "authors": "Li Gan; Xiongfei Guo; Qing He; Pengzhan Qian; Junhui Wang",
+    "presenter": "Xiongfei Guo",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "cash transfer; work incentives; college enrollment; household behavior"
+  },
+  {
+    "id": "P051",
+    "title": "Two Labor Markets, One Transition: Asymmetric Employment Consequences of China's New Normal for Youth and Aggregate Unemployment",
+    "authors": "Yupeng Hua (Auburn University)",
+    "presenter": "Yupeng Hua",
+    "email": "",
+    "affiliation": "Auburn University",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "youth unemployment; China; economic transition; dual labor market"
+  },
+  {
+    "id": "P052",
+    "title": "Government Digital Procurement, Cost Structure, and Firm Innovative Economic Efficiency",
+    "authors": "Yupeng Zhang (ECNU); Bingxin Zheng (ECNU)",
+    "presenter": "Yupeng Zhang",
+    "email": "",
+    "affiliation": "East China Normal University",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "digital procurement; government; innovation; firm efficiency"
+  },
+  {
+    "id": "P053",
+    "title": "A Lost Decade of Fiscal Misallocation",
+    "authors": "Kosuke Aoki; Ippei Fujiwara; Zhenhe Lin; Zheng (Michael) Song",
+    "presenter": "Zhenhe Lin",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "fiscal policy; misallocation; Japan; lost decade"
+  },
+  {
+    "id": "P054",
+    "title": "Trimming the Tree to Help It Grow: Selective Exit and Productivity Growth in China's State Sector",
+    "authors": "Adam A. Oppenheimer; Yutong Zhong",
+    "presenter": "Yutong Zhong",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "state sector; productivity; selective exit; China"
+  },
+  {
+    "id": "P055",
+    "title": "The Long-Term Impact of Fertility on Cognitive Health: Son Preference, Missing Girls, and the One-Child Policy",
+    "authors": "Castor Comploj (University of Groningen)",
+    "presenter": "Castor Comploj",
+    "email": "",
+    "affiliation": "University of Groningen",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "fertility; cognitive health; one-child policy; son preference"
+  },
+  {
+    "id": "P056",
+    "title": "Endogenous Supplier Sourcing under Delivery Risk and its Macro Implications",
+    "authors": "Manchun Wang (Boston College)",
+    "presenter": "Manchun Wang",
+    "email": "",
+    "affiliation": "Boston College",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "supply chains; delivery risk; supplier sourcing; macroeconomics"
+  },
+  {
+    "id": "P057",
+    "title": "Markups and Misallocation in Banking",
+    "authors": "Robin Yifan Luo",
+    "presenter": "Robin Yifan Luo",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "markups; misallocation; banking; deposits"
+  },
+  {
+    "id": "P058",
+    "title": "Time-to-build Capital, Network and Business Cycle",
+    "authors": "Dimin Liu; Manchun Wang (Boston College)",
+    "presenter": "Dimin Liu",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "time-to-build; capital; network; business cycle"
+  },
+  {
+    "id": "P059",
+    "title": "Toward a Bridge Between Theory and the Lab: LLM Agents in Bank-Run Games",
+    "authors": "Weichen Zhang",
+    "presenter": "Weichen Zhang",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "LLM; AI agents; bank runs; game theory"
+  },
+  {
+    "id": "P060",
+    "title": "The Evolution of Urban-Rural Income and Consumption Inequality in Transitioning China",
+    "authors": "Dan Yang (Louisiana State University); Fang Yang (Louisiana State University)",
+    "presenter": "Dan Yang",
+    "email": "",
+    "affiliation": "Louisiana State University",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "urban-rural inequality; income; consumption; China transition"
+  },
+  {
+    "id": "P061",
+    "title": "The AI Growth Paradox: Incumbent Entrenchment and the Distribution of Innovation",
+    "authors": "Guiyou Guan (University of California, Irvine)",
+    "presenter": "Guiyou Guan",
+    "email": "",
+    "affiliation": "University of California, Irvine",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "AI; innovation; incumbent firms; growth"
+  },
+  {
+    "id": "P062",
+    "title": "Riding on the Fast Track to Debt Risk? Subway, Infrastructure, and the Financing Costs of Local Governments in China",
+    "authors": "Yatang Lin; Kevin Zhengcheng Liu; Jin Wang",
+    "presenter": "Yatang Lin",
+    "email": "",
+    "affiliation": "",
+    "type": "Individual",
+    "group": "",
+    "organizer": "",
+    "chair": "",
+    "keywords": "subway; infrastructure; local government debt; China"
+  }
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+let paperStates = {};   // id -> status string
+let activeFilter = 'status:all';
+let syncDots = {};
+
+const STATUSES = ['Pending','Accept','Poster','Waitlist','Reject','Withdrawn'];
+const STATUS_CLASS = {
+  'Pending': 's-pending', 'Accept': 's-accept', 'Poster': 's-poster',
+  'Waitlist': 's-waitlist', 'Reject': 's-reject', 'Withdrawn': 's-withdrawn'
+};
+
+// ── Firebase sync ─────────────────────────────────────────────────────────────
+function fbRef(id) { return db.ref(`${FB_NODE}/states/${id}`); }
+
+function loadFromFirebase() {
+  db.ref(`${FB_NODE}/states`).on('value', snap => {
+    const data = snap.val() || {};
+    PAPERS.forEach(p => { paperStates[p.id] = data[p.id] || 'Pending'; });
+    updateCounters();
+    renderCards();
+  });
+}
+
+function saveStatus(id, status) {
+  const dot = document.getElementById('dot-' + id);
+  if (dot) { dot.className = 'sync-dot syncing'; }
+  fbRef(id).set(status)
+    .then(() => { if (dot) dot.className = 'sync-dot synced'; })
+    .catch(() => { if (dot) dot.className = 'sync-dot error'; });
+}
+
+// ── Filter / search ───────────────────────────────────────────────────────────
+function setFilter(btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilter = btn.dataset.filter;
+  renderCards();
+}
+
+function matchesFilter(p) {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  if (q) {
+    const haystack = (p.title + ' ' + p.authors + ' ' + p.keywords + ' ' + p.group).toLowerCase();
+    if (!haystack.includes(q)) return false;
+  }
+  if (activeFilter.startsWith('status:')) {
+    const s = activeFilter.split(':')[1];
+    if (s !== 'all' && paperStates[p.id] !== s) return false;
+  }
+  if (activeFilter.startsWith('type:')) {
+    const t = activeFilter.split(':')[1];
+    if (t !== 'all' && p.type !== t) return false;
+  }
+  return true;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderCards() {
+  const sort = document.getElementById('sortSelect').value;
+  let papers = PAPERS.filter(matchesFilter);
+  papers.sort((a, b) => {
+    if (sort === 'title')  return a.title.localeCompare(b.title);
+    if (sort === 'status') return STATUSES.indexOf(paperStates[a.id]) - STATUSES.indexOf(paperStates[b.id]);
+    if (sort === 'type')   return a.type.localeCompare(b.type) || a.id.localeCompare(b.id);
+    return a.id.localeCompare(b.id);
+  });
+
+  document.getElementById('showingCount').textContent = papers.length;
+
+  const grid = document.getElementById('cardsGrid');
+  grid.innerHTML = papers.length === 0
+    ? '<div class="empty">No papers match the current filter.</div>'
+    : papers.map(cardHTML).join('');
+
+  papers.forEach(p => {
+    const sel = document.getElementById('sel-' + p.id);
+    if (sel) sel.className = 'status-select ' + (STATUS_CLASS[paperStates[p.id]] || 's-pending');
+  });
+}
+
+function cardHTML(p) {
+  const status = paperStates[p.id] || 'Pending';
+  const selClass = STATUS_CLASS[status] || 's-pending';
+  const typeBadge = p.type === 'Organized' ? 'badge-organized' :
+                    p.type === 'Proposed'  ? 'badge-proposed'  : 'badge-individual';
+  const groupBadge = p.group ? `<span class="badge badge-group" title="Session: ${escHtml(p.group)}">
+    ${escHtml(p.group.length > 45 ? p.group.slice(0,43)+'…' : p.group)}</span>` : '';
+
+  const options = STATUSES.map(s =>
+    `<option value="${s}" ${s === status ? 'selected' : ''}>${s === 'Accept' ? 'Accept (Oral)' : s === 'Poster' ? 'Accept (Poster)' : s}</option>`
+  ).join('');
+
+  return `<div class="card" id="card-${p.id}">
+    <div class="card-header">
+      <span class="card-id">${p.id}</span>
+      <span class="card-title">${escHtml(p.title)}</span>
+    </div>
+    <div class="card-authors">${escHtml(p.authors)}</div>
+    <div class="card-meta">
+      <span class="badge ${typeBadge}">${p.type}</span>
+      ${groupBadge}
+    </div>
+    ${p.keywords ? `<div class="card-keywords">Keywords: ${escHtml(p.keywords)}</div>` : ''}
+    <div class="card-footer">
+      <select class="status-select ${selClass}" id="sel-${p.id}"
+              onchange="onStatusChange('${p.id}', this)">
+        ${options}
+      </select>
+      <span class="sync-dot" id="dot-${p.id}"></span>
+      ${p.presenter ? `<span style="font-size:11px;color:#777">Presenter: ${escHtml(p.presenter)}</span>` : ''}
+      ${p.email ? `<a href="mailto:${escHtml(p.email)}" style="font-size:11px;color:#888">✉</a>` : ''}
+    </div>
+  </div>`;
+}
+
+function onStatusChange(id, sel) {
+  const status = sel.value;
+  paperStates[id] = status;
+  sel.className = 'status-select ' + (STATUS_CLASS[status] || 's-pending');
+  saveStatus(id, status);
+  updateCounters();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Counters ──────────────────────────────────────────────────────────────────
+function updateCounters() {
+  const counts = {Pending:0,Accept:0,Poster:0,Waitlist:0,Reject:0,Withdrawn:0};
+  PAPERS.forEach(p => { const s = paperStates[p.id] || 'Pending'; if (counts[s]!==undefined) counts[s]++; });
+  const total = PAPERS.length;
+  document.getElementById('statTotal').textContent   = total;
+  document.getElementById('statAccept').textContent  = counts.Accept + counts.Poster;
+  document.getElementById('statReject').textContent  = counts.Reject;
+  document.getElementById('statPending').textContent = counts.Pending;
+
+  document.getElementById('cntAll').textContent       = total;
+  document.getElementById('cntPending').textContent   = counts.Pending;
+  document.getElementById('cntAccept').textContent    = counts.Accept;
+  document.getElementById('cntPoster').textContent    = counts.Poster;
+  document.getElementById('cntWaitlist').textContent  = counts.Waitlist;
+  document.getElementById('cntReject').textContent    = counts.Reject;
+  document.getElementById('cntWithdrawn').textContent = counts.Withdrawn;
+}
+
+// ── Exports ───────────────────────────────────────────────────────────────────
+function exportCSV() {
+  let csv = 'ID,Title,Authors,Presenter,Email,Affiliation,Type,Group,Status,Keywords\n';
+  PAPERS.forEach(p => {
+    const row = [p.id, p.title, p.authors, p.presenter, p.email, p.affiliation,
+                 p.type, p.group, paperStates[p.id]||'Pending', p.keywords]
+      .map(v => '"' + String(v||'').replace(/"/g,'""') + '"').join(',');
+    csv += row + '\n';
+  });
+  downloadCSV(csv, 'ces2027_assa_all_papers.csv');
+}
+
+function exportAcceptedCSV() {
+  const accepted = PAPERS.filter(p => paperStates[p.id] === 'Accept' || paperStates[p.id] === 'Poster');
+  if (!accepted.length) { alert('No accepted papers yet.'); return; }
+  let csv = 'ID,Title,Authors,Presenter,Email,Affiliation,Type,Group,Status,Keywords\n';
+  accepted.forEach(p => {
+    const row = [p.id, p.title, p.authors, p.presenter, p.email, p.affiliation,
+                 p.type, p.group, paperStates[p.id], p.keywords]
+      .map(v => '"' + String(v||'').replace(/"/g,'""') + '"').join(',');
+    csv += row + '\n';
+  });
+  downloadCSV(csv, 'ces2027_assa_accepted.csv');
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function resetAllStatus() {
+  if (!confirm('Reset ALL papers to Pending? This cannot be undone.')) return;
+  PAPERS.forEach(p => { paperStates[p.id] = 'Pending'; });
+  db.ref(`${FB_NODE}/states`).set({});
+  updateCounters();
+  renderCards();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+PAPERS.forEach(p => { paperStates[p.id] = 'Pending'; });
+loadFromFirebase();
+</script>
+</body>
+</html>
