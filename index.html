@@ -3,158 +3,343 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CES 2027 ASSA Sessions — Paper Review Portal</title>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<title>CES 2027 ASSA Paper Selection Dashboard</title>
 <style>
-  :root {
-    --navy: #002878;
-    --gold: #B08D22;
-    --green: #1a7a3a;
-    --red: #b52a2a;
-    --orange: #c55d00;
-    --gray: #f4f5f7;
-    --border: #dce1e8;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px;
-         background: #f0f2f5; color: #222; display: flex; flex-direction: column; height: 100vh; }
-  /* ── Header ── */
-  header { background: var(--navy); color: #fff; padding: 12px 20px;
-            display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
-  header h1 { font-size: 18px; font-weight: 700; }
-  header .subtitle { font-size: 12px; opacity: .75; }
-  .header-stats { margin-left: auto; display: flex; gap: 16px; font-size: 12px; }
-  .stat-box { text-align: center; }
-  .stat-num { font-size: 20px; font-weight: 700; display: block; }
-  /* ── Layout ── */
-  .main { display: flex; flex: 1; overflow: hidden; }
-  /* ── Sidebar ── */
-  .sidebar { width: 220px; background: #fff; border-right: 1px solid var(--border);
-              padding: 16px 12px; overflow-y: auto; flex-shrink: 0; }
-  .sidebar h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
-                 color: #666; margin-bottom: 8px; margin-top: 16px; }
-  .sidebar h3:first-child { margin-top: 0; }
-  .filter-btn { display: block; width: 100%; text-align: left; padding: 6px 10px;
-                 border-radius: 6px; border: none; background: none; cursor: pointer;
-                 font-size: 13px; color: #333; margin-bottom: 2px; transition: background .15s; }
-  .filter-btn:hover { background: #eef2fb; }
-  .filter-btn.active { background: var(--navy); color: #fff; font-weight: 600; }
-  .filter-btn .cnt { float: right; opacity: .6; font-size: 12px; }
-  .search-wrap { margin-bottom: 8px; }
-  .search-wrap input { width: 100%; padding: 7px 10px; border: 1px solid var(--border);
-                         border-radius: 6px; font-size: 13px; outline: none; }
-  .search-wrap input:focus { border-color: var(--navy); }
-  /* ── Cards pane ── */
-  .cards-pane { flex: 1; overflow-y: auto; padding: 16px; }
-  .cards-grid { display: grid; gap: 12px; }
-  /* ── Card ── */
-  .card { background: #fff; border-radius: 8px; border: 1px solid var(--border);
-           padding: 14px 16px; transition: box-shadow .15s; }
-  .card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
-  .card-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-  .card-id { font-size: 11px; color: #888; font-weight: 600; white-space: nowrap; margin-top: 2px; }
-  .card-title { font-size: 14px; font-weight: 600; color: var(--navy); flex: 1; line-height: 1.35; }
-  .card-authors { font-size: 12px; color: #555; margin-bottom: 6px; }
-  .card-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
-            font-weight: 600; border: 1px solid; }
-  .badge-organized { background: #e8f4e8; color: #1a7a3a; border-color: #a8d8a8; }
-  .badge-proposed  { background: #fff8e1; color: #8a6200; border-color: #f5c842; }
-  .badge-individual { background: #f0f4ff; color: #2c4ba0; border-color: #b0c0f0; }
-  .badge-group { background: #f5f0fa; color: #6a0dad; border-color: #d0b8ea; font-weight: 400; }
-  .card-keywords { font-size: 11px; color: #888; margin-bottom: 8px; }
-  .card-footer { display: flex; align-items: center; gap: 8px; }
-  .status-select { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
-                    font-size: 12px; font-weight: 600; cursor: pointer; outline: none; flex-shrink: 0; }
-  .status-select.s-pending    { background: #f5f5f5; color: #555; }
-  .status-select.s-accept     { background: #e8f4e8; color: var(--green); border-color: #a8d8a8; }
-  .status-select.s-poster     { background: #e8f0ff; color: #2c4ba0; border-color: #b0c0f0; }
-  .status-select.s-waitlist   { background: #fff8e1; color: #8a6200; border-color: #f5c842; }
-  .status-select.s-reject     { background: #ffeaea; color: var(--red); border-color: #f5b8b8; }
-  .status-select.s-withdrawn  { background: #f0f0f0; color: #888; border-color: #ccc; }
-  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
-  .sync-dot.synced  { background: #4caf50; }
-  .sync-dot.syncing { background: #ff9800; animation: pulse .8s infinite; }
-  .sync-dot.error   { background: #f44336; }
-  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.4 } }
-  /* ── Toolbar ── */
-  .toolbar { background: #fff; border-bottom: 1px solid var(--border); padding: 10px 16px;
-              display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
-  .toolbar button { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
-                     background: #fff; cursor: pointer; font-size: 13px; font-weight: 500;
-                     transition: background .15s; }
-  .toolbar button:hover { background: #eef2fb; }
-  .toolbar button.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
-  .toolbar button.primary:hover { background: #001c5c; }
-  .sort-label { font-size: 12px; color: #666; margin-left: auto; }
-  .count-label { font-size: 13px; color: #444; }
-  /* ── Empty state ── */
-  .empty { text-align: center; padding: 48px 24px; color: #aaa; font-size: 14px; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }
+
+.login-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+    display: flex; align-items: center; justify-content: center; z-index: 10000;
+}
+.login-box {
+    background: white; border-radius: 12px; padding: 40px; max-width: 420px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;
+}
+.login-box h1 { font-size: 22px; color: #1a365d; margin-bottom: 8px; }
+.login-box p { font-size: 14px; color: #718096; margin-bottom: 24px; }
+.login-btn {
+    display: block; width: 100%; padding: 14px; margin-bottom: 10px;
+    background: #edf2f7; border: 2px solid #e2e8f0; border-radius: 8px;
+    font-size: 16px; font-weight: 600; color: #2d3748; cursor: pointer; transition: all 0.15s;
+}
+.login-btn:hover { background: #2b6cb0; color: white; border-color: #2b6cb0; }
+
+.header {
+    background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+    color: white; padding: 24px 32px; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.header h1 { font-size: 24px; margin-bottom: 4px; }
+.header .subtitle { opacity: 0.85; font-size: 14px; }
+
+.stats-bar {
+    display: flex; gap: 12px; padding: 16px 32px; background: white;
+    border-bottom: 1px solid #e2e8f0; flex-wrap: wrap;
+}
+.stat-card {
+    padding: 12px 20px; border-radius: 8px; min-width: 130px; text-align: center; border: 1px solid #e2e8f0;
+}
+.stat-card .number { font-size: 28px; font-weight: 700; }
+.stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; margin-top: 2px; }
+.stat-accept   { background: #f0fff4; border-color: #48bb78 !important; } .stat-accept .number   { color: #22543d; }
+.stat-poster   { background: #ebf8ff; border-color: #4299e1 !important; } .stat-poster .number   { color: #2a4365; }
+.stat-waitlist { background: #fffbeb; border-color: #ecc94b !important; } .stat-waitlist .number { color: #744210; }
+.stat-reject   { background: #fff5f5; border-color: #fc8181 !important; } .stat-reject .number   { color: #822727; }
+.stat-total    { background: #f0f4ff; border-color: #4299e1 !important; } .stat-total .number    { color: #1a365d; }
+
+.main { display: flex; min-height: calc(100vh - 160px); }
+
+.sidebar {
+    width: 280px; min-width: 280px; background: white; border-right: 1px solid #e2e8f0;
+    padding: 16px; overflow-y: auto; max-height: calc(100vh - 160px); position: sticky; top: 120px;
+}
+.sidebar h3 { font-size: 13px; text-transform: uppercase; color: #718096; margin: 16px 0 8px; letter-spacing: 0.5px; }
+.sidebar h3:first-child { margin-top: 0; }
+.filter-group label { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.filter-group label:hover { background: #f7fafc; }
+.filter-group input[type="checkbox"] { accent-color: #4299e1; }
+.filter-count { margin-left: auto; color: #a0aec0; font-size: 11px; }
+.search-box {
+    width: 100%; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+    font-size: 13px; outline: none; margin-bottom: 12px;
+}
+.search-box:focus { border-color: #4299e1; box-shadow: 0 0 0 3px rgba(66,153,225,0.15); }
+
+.content { flex: 1; padding: 20px 24px; overflow-y: auto; }
+.tab-bar { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; }
+.tab {
+    padding: 8px 16px; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 13px;
+    font-weight: 500; color: #718096; border: 1px solid transparent; border-bottom: none;
+    position: relative; bottom: -2px;
+}
+.tab:hover { color: #2d3748; background: #f7fafc; }
+.tab.active { color: #2b6cb0; background: white; border-color: #e2e8f0; border-bottom-color: white; }
+
+.paper-card {
+    background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px;
+    margin-bottom: 10px; transition: box-shadow 0.2s, border-color 0.2s;
+}
+.paper-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-color: #cbd5e0; }
+.paper-card.status-accept   { border-left: 4px solid #48bb78; }
+.paper-card.status-poster   { border-left: 4px solid #4299e1; }
+.paper-card.status-waitlist { border-left: 4px solid #ecc94b; }
+.paper-card.status-reject   { border-left: 4px solid #fc8181; }
+
+.paper-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.paper-title { font-size: 15px; font-weight: 600; color: #1a202c; flex: 1; line-height: 1.4; }
+.paper-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 12px; color: #718096; }
+.badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-right: 4px;
+}
+.badge-organized { background: #e9d8fd; color: #44337a; }
+.badge-proposed  { background: #bee3f8; color: #2a4365; }
+.badge-individual { background: #c6f6d5; color: #22543d; }
+.badge-group     { background: #faf5ff; color: #553c9a; }
+.badge-pdf       { background: #fed7d7; color: #822727; }
+
+.paper-abstract {
+    margin-top: 8px; font-size: 13px; color: #4a5568; line-height: 1.5;
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+}
+.paper-card.expanded .paper-abstract { max-height: 500px; }
+.expand-btn { background: none; border: none; color: #4299e1; cursor: pointer; font-size: 12px; margin-top: 6px; padding: 2px 0; }
+.expand-btn:hover { text-decoration: underline; }
+.delete-btn { background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 13px; padding: 2px 6px; opacity: 0.6; }
+.delete-btn:hover { opacity: 1; }
+
+.status-select { padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; cursor: pointer; background: white; }
+
+.actions-bar {
+    display: flex; gap: 8px; padding: 12px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 16px;
+    flex-wrap: wrap; align-items: center;
+}
+.btn {
+    padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 1px solid #e2e8f0;
+    background: white; color: #4a5568; font-weight: 500; transition: all 0.15s;
+}
+.btn:hover { background: #f7fafc; border-color: #cbd5e0; }
+.btn-primary { background: #2b6cb0; color: white; border-color: #2b6cb0; }
+.btn-primary:hover { background: #2c5282; }
+.btn-success { background: #48bb78; color: white; border-color: #48bb78; }
+.btn-success:hover { background: #38a169; }
+.btn-danger  { background: #e53e3e; color: white; border-color: #e53e3e; }
+.btn-danger:hover { background: #c53030; }
+.sort-select { padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; }
+
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.visible { display: flex; }
+.modal { background: white; border-radius: 12px; padding: 24px; max-width: 640px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+.modal h2 { margin-bottom: 16px; font-size: 18px; }
+.modal-close { float: right; background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 4px; }
+.form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+    font-size: 13px; font-family: inherit; outline: none;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #4299e1; }
+
+.sync-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 12px; background: rgba(255,255,255,0.15); margin-left: 12px; }
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.sync-dot.connected { background: #48bb78; }
+.sync-dot.disconnected { background: #fc8181; }
+.sync-dot.syncing { background: #ecc94b; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+.online-users { display: inline-flex; gap: 4px; margin-left: 8px; }
+.online-user-badge { background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 8px; font-size: 11px; color: white; }
+
+.change-log-item { padding: 6px 0; border-bottom: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.change-log-item .from { color: #e53e3e; text-decoration: line-through; }
+.change-log-item .to   { color: #38a169; font-weight: 500; }
+.empty-state { text-align: center; padding: 60px 20px; color: #a0aec0; font-size: 14px; }
+
+@media (max-width: 900px) { .sidebar { display: none; } .content { padding: 12px 16px; } }
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
 
-<header>
-  <div>
-    <h1>CES 2027 ASSA Sessions — Paper Review Portal</h1>
-    <div class="subtitle">Chinese Economists Society · ASSA 2027 · San Francisco, CA</div>
-  </div>
-  <div class="header-stats">
-    <div class="stat-box"><span class="stat-num" id="statTotal">0</span>Total</div>
-    <div class="stat-box"><span class="stat-num" id="statAccept" style="color:#6fcf8a">0</span>Accepted</div>
-    <div class="stat-box"><span class="stat-num" id="statReject" style="color:#f08080">0</span>Rejected</div>
-    <div class="stat-box"><span class="stat-num" id="statPending" style="color:#ffd166">0</span>Pending</div>
-  </div>
-</header>
-
-<div class="toolbar">
-  <button class="primary" onclick="exportCSV()">Export CSV</button>
-  <button onclick="exportAcceptedCSV()">Export Accepted</button>
-  <button onclick="resetAllStatus()" style="color:#b52a2a">Reset All</button>
-  <div class="count-label"><span id="showingCount">0</span> papers shown</div>
-  <div class="sort-label">
-    Sort: <select id="sortSelect" onchange="renderCards()" style="border:1px solid #dce1e8;border-radius:4px;padding:3px 6px;font-size:12px;">
-      <option value="id">ID</option>
-      <option value="title">Title</option>
-      <option value="status">Status</option>
-      <option value="type">Type</option>
-    </select>
+<!-- Role Selection -->
+<div class="login-overlay" id="roleOverlay">
+  <div class="login-box" style="max-width:480px;">
+    <h1>CES 2027 ASSA Sessions</h1>
+    <p style="margin-bottom:32px;">Select your role to continue.</p>
+    <div style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:180px;padding:28px 20px;border-radius:14px;border:3px solid #e2e8f0;background:white;cursor:pointer;transition:all 0.18s;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.08);"
+           onmouseenter="this.style.borderColor='#2b6cb0';this.style.transform='translateY(-4px)'"
+           onmouseleave="this.style.borderColor='#e2e8f0';this.style.transform=''"
+           onclick="showLogin()">
+        <div style="font-size:48px;margin-bottom:12px;">&#x1F4CB;</div>
+        <div style="font-size:17px;font-weight:700;color:#1a365d;margin-bottom:6px;">Organizer</div>
+        <div style="font-size:12px;color:#718096;line-height:1.5;">Paper review &amp; status decisions</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:180px;padding:28px 20px;border-radius:14px;border:3px solid #e2e8f0;background:white;cursor:pointer;transition:all 0.18s;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.08);"
+           onmouseenter="this.style.borderColor='#276749';this.style.transform='translateY(-4px)'"
+           onmouseleave="this.style.borderColor='#e2e8f0';this.style.transform=''"
+           onclick="doLogin('Reviewer')">
+        <div style="font-size:48px;margin-bottom:12px;">&#x1F50D;</div>
+        <div style="font-size:17px;font-weight:700;color:#1a365d;margin-bottom:6px;">Reviewer</div>
+        <div style="font-size:12px;color:#718096;line-height:1.5;">View papers &amp; leave notes</div>
+      </div>
+    </div>
+    <p style="margin-top:24px;font-size:12px;color:#a0aec0;">Your role is remembered for this browser.</p>
   </div>
 </div>
 
+<!-- Organizer Login (name selection) -->
+<div class="login-overlay" id="loginOverlay" style="display:none;">
+  <div class="login-box">
+    <h1>CES 2027 ASSA Selection</h1>
+    <p>Select your name. All changes are tracked under your name.</p>
+    <button class="login-btn" onclick="doLogin('Kaiji Chen')">Kaiji Chen</button>
+    <button class="login-btn" onclick="doLogin('Jue Ren')">Jue Ren</button>
+    <button class="login-btn" onclick="doLogin('Wendong Zhang')">Wendong Zhang</button>
+    <button class="login-btn" onclick="doLogin('Other')">Other</button>
+    <button onclick="document.getElementById('loginOverlay').style.display='none';document.getElementById('roleOverlay').style.display='flex';"
+      style="margin-top:8px;padding:10px 24px;border-radius:8px;border:2px solid #e2e8f0;background:#f7fafc;font-size:13px;font-weight:600;color:#718096;cursor:pointer;width:100%;">&#x2190; Back</button>
+  </div>
+</div>
+
+<div class="header">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <h1>CES 2027 ASSA Sessions &#x2014; Paper Selection Dashboard</h1>
+      <div class="subtitle">Chinese Economists Society &middot; ASSA 2027 &middot; <span id="paperCountSubtitle">62</span> submissions &middot; Interactive board review tool</div>
+    </div>
+    <div id="userBadge" style="display:none;background:rgba(255,255,255,0.2);padding:8px 16px;border-radius:8px;font-size:13px;align-items:center;gap:8px;flex-wrap:wrap;">
+      Logged in as: <strong id="currentUserDisplay"></strong>
+      <button onclick="doLogout()" style="margin-left:8px;background:none;border:1px solid rgba(255,255,255,0.4);color:white;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:12px;">Switch User</button>
+      <span class="sync-status" id="syncStatus"><span class="sync-dot disconnected" id="syncDot"></span><span id="syncText">Offline</span></span>
+      <span class="online-users" id="onlineUsers"></span>
+    </div>
+  </div>
+</div>
+
+<div class="stats-bar" id="statsBar"></div>
+
 <div class="main">
   <div class="sidebar">
-    <div class="search-wrap">
-      <input type="text" id="searchInput" placeholder="Search title / author / keyword…" oninput="renderCards()">
+    <input type="text" class="search-box" id="searchBox" placeholder="Search papers, authors, keywords..." oninput="applyFilters()">
+
+    <h3>Status Filter</h3>
+    <div class="filter-group" id="statusFilters">
+      <label><input type="checkbox" id="sf_pending"  checked onchange="applyFilters()"> <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#a0aec0;flex-shrink:0;"></span> <span style="flex:1;">Pending</span> <span class="filter-count" id="sf_pending_count"></span></label>
+      <label><input type="checkbox" id="sf_accept"   checked onchange="applyFilters()"> <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#48bb78;flex-shrink:0;"></span> <span style="flex:1;">Accept (Oral)</span> <span class="filter-count" id="sf_accept_count"></span></label>
+      <label><input type="checkbox" id="sf_poster"   checked onchange="applyFilters()"> <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#4299e1;flex-shrink:0;"></span> <span style="flex:1;">Accept (Poster)</span> <span class="filter-count" id="sf_poster_count"></span></label>
+      <label><input type="checkbox" id="sf_waitlist" checked onchange="applyFilters()"> <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ecc94b;flex-shrink:0;"></span> <span style="flex:1;">Waitlist</span> <span class="filter-count" id="sf_waitlist_count"></span></label>
+      <label><input type="checkbox" id="sf_reject"   checked onchange="applyFilters()"> <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fc8181;flex-shrink:0;"></span> <span style="flex:1;">Reject</span> <span class="filter-count" id="sf_reject_count"></span></label>
     </div>
 
-    <h3>Status</h3>
-    <button class="filter-btn active" data-filter="status:all" onclick="setFilter(this)">All <span class="cnt" id="cntAll">0</span></button>
-    <button class="filter-btn" data-filter="status:Pending" onclick="setFilter(this)">Pending <span class="cnt" id="cntPending">0</span></button>
-    <button class="filter-btn" data-filter="status:Accept" onclick="setFilter(this)">Accept (Oral) <span class="cnt" id="cntAccept">0</span></button>
-    <button class="filter-btn" data-filter="status:Poster" onclick="setFilter(this)">Accept (Poster) <span class="cnt" id="cntPoster">0</span></button>
-    <button class="filter-btn" data-filter="status:Waitlist" onclick="setFilter(this)">Waitlist <span class="cnt" id="cntWaitlist">0</span></button>
-    <button class="filter-btn" data-filter="status:Reject" onclick="setFilter(this)">Reject <span class="cnt" id="cntReject">0</span></button>
-    <button class="filter-btn" data-filter="status:Withdrawn" onclick="setFilter(this)">Withdrawn <span class="cnt" id="cntWithdrawn">0</span></button>
+    <h3>Type Filter</h3>
+    <div class="filter-group">
+      <label><input type="checkbox" id="tf_organized"  checked onchange="applyFilters()"> Organized Session <span class="filter-count" id="tf_organized_count"></span></label>
+      <label><input type="checkbox" id="tf_proposed"   checked onchange="applyFilters()"> Proposed Session <span class="filter-count" id="tf_proposed_count"></span></label>
+      <label><input type="checkbox" id="tf_individual" checked onchange="applyFilters()"> Individual <span class="filter-count" id="tf_individual_count"></span></label>
+    </div>
 
-    <h3>Type</h3>
-    <button class="filter-btn" data-filter="type:all" onclick="setFilter(this)">All Types</button>
-    <button class="filter-btn" data-filter="type:Organized" onclick="setFilter(this)">Organized Session</button>
-    <button class="filter-btn" data-filter="type:Proposed" onclick="setFilter(this)">Proposed Session</button>
-    <button class="filter-btn" data-filter="type:Individual" onclick="setFilter(this)">Individual Submission</button>
+    <h3>Bulk Actions</h3>
+    <div style="background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;padding:8px;margin-bottom:8px;font-size:12px;color:#276749;text-align:center;">
+      &#x2601; Real-time sync &#x2014; all changes visible to everyone
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:6px;" onclick="exportCSV()">&#x1F4E5; Export CSV</button>
+    <button class="btn" style="width:100%;margin-bottom:6px;" onclick="showChangeLog()">&#x1F4CB; Change Log (<span id="changeCount">0</span>)</button>
+    <button class="btn btn-success" style="width:100%;margin-bottom:6px;" onclick="openAddPaper()">&#x2795; Add Paper</button>
+    <button class="btn btn-danger" style="width:100%;margin-bottom:6px;opacity:0.7;" onclick="resetAll()">&#x21BA; Reset to Original</button>
   </div>
 
-  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-    <div class="cards-pane" id="cardsPane">
-      <div class="cards-grid" id="cardsGrid"></div>
+  <div class="content">
+    <div class="tab-bar">
+      <div class="tab active" data-tab="all"       onclick="switchTab('all')">All Papers</div>
+      <div class="tab"        data-tab="organized" onclick="switchTab('organized')">Organized Sessions</div>
+      <div class="tab"        data-tab="changes"   onclick="switchTab('changes')">Changes</div>
+      <div class="tab"        data-tab="notes"     onclick="switchTab('notes')">&#x1F4DD; Notes</div>
     </div>
+
+    <!-- All Papers tab -->
+    <div id="tabAll">
+      <div class="actions-bar">
+        <label>Sort: <select class="sort-select" id="sortSelect" onchange="applyFilters()">
+          <option value="id">ID</option>
+          <option value="title">Title (A&#x2192;Z)</option>
+          <option value="author">Author (A&#x2192;Z)</option>
+          <option value="status">Status</option>
+          <option value="type">Type</option>
+        </select></label>
+        <span style="color:#a0aec0;font-size:13px;margin-left:8px;" id="resultCount"></span>
+      </div>
+      <div id="paperList"></div>
+    </div>
+
+    <!-- Organized Sessions tab -->
+    <div id="tabOrganized" style="display:none;">
+      <h2 style="margin-bottom:16px;font-size:18px;">Organized &amp; Proposed Sessions</h2>
+      <div id="organizedList"></div>
+    </div>
+
+    <!-- Changes tab -->
+    <div id="tabChanges" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h2 style="font-size:18px;margin:0;">Change Log</h2>
+        <button class="btn btn-primary" onclick="exportChangesCSV()" style="font-size:12px;">&#x2B07; Export CSV</button>
+      </div>
+      <div id="changeLogTab" style="font-size:13px;"></div>
+    </div>
+
+    <!-- Notes tab -->
+    <div id="tabNotes" style="display:none;">
+      <h2 style="font-size:18px;margin:0 0 16px;">&#x1F4DD; Shared Notes</h2>
+      <div style="display:flex;gap:12px;margin-bottom:20px;align-items:flex-start;">
+        <textarea id="newNoteText" placeholder="Write a note visible to all organizers..." rows="3"
+          style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;font-family:inherit;"></textarea>
+        <button class="btn btn-success" onclick="postNote()" style="white-space:nowrap;padding:10px 20px;">&#x1F4E4; Post</button>
+      </div>
+      <div id="notesList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Paper Modal -->
+<div class="modal-overlay" id="addPaperModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addPaperModal')">&times;</button>
+    <h2>&#x2795; Add Paper</h2>
+    <div class="form-group"><label>Title *</label><input type="text" id="ap_title" placeholder="Full paper title"></div>
+    <div class="form-group"><label>Authors *</label><input type="text" id="ap_authors" placeholder="Author 1; Author 2; Author 3"></div>
+    <div class="form-group"><label>Presenter</label><input type="text" id="ap_presenter" placeholder="Presenting author"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="ap_email" placeholder="presenter@university.edu"></div>
+    <div class="form-group"><label>Affiliation</label><input type="text" id="ap_affiliation"></div>
+    <div class="form-group"><label>Type</label>
+      <select id="ap_type">
+        <option value="Individual">Individual</option>
+        <option value="Organized">Organized Session</option>
+        <option value="Proposed">Proposed Session</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Session / Group Name</label><input type="text" id="ap_group" placeholder="e.g. Education Economics Session"></div>
+    <div class="form-group"><label>Keywords</label><input type="text" id="ap_keywords" placeholder="keyword1; keyword2"></div>
+    <div class="form-group"><label>PDF filename (in papers/ folder)</label><input type="text" id="ap_pdf" placeholder="filename.pdf"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn" onclick="closeModal('addPaperModal')">Cancel</button>
+      <button class="btn btn-success" onclick="submitAddPaper()">&#x2795; Add Paper</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change Log Modal -->
+<div class="modal-overlay" id="changeLogModal">
+  <div class="modal" style="max-width:700px;">
+    <button class="modal-close" onclick="closeModal('changeLogModal')">&times;</button>
+    <h2>&#x1F4CB; Change Log</h2>
+    <div id="changeLogModal_content" style="max-height:400px;overflow-y:auto;font-size:13px;"></div>
   </div>
 </div>
 
 <script>
-// ── Firebase config ──────────────────────────────────────────────────────────
-const FB_CONFIG = {
+// ── Firebase ─────────────────────────────────────────────────────────────────
+firebase.initializeApp({
   apiKey: "AIzaSyBPLEcBHBNdbbzxm2EUj_jfPy9h5a7oFHQ",
   authDomain: "ces2026-selection.firebaseapp.com",
   databaseURL: "https://ces2026-selection-default-rtdb.firebaseio.com",
@@ -162,17 +347,16 @@ const FB_CONFIG = {
   storageBucket: "ces2026-selection.appspot.com",
   messagingSenderId: "738012340527",
   appId: "1:738012340527:web:9c98f9c8cf7c3cf0a98fb7"
-};
-firebase.initializeApp(FB_CONFIG);
+});
 const db = firebase.database();
-const FB_NODE = 'ces2027-assa';
+const NODE = 'ces2027-assa';
 
-// ── Paper data ───────────────────────────────────────────────────────────────
-const PAPERS = [
+// ── Base paper data ───────────────────────────────────────────────────────────
+const BASE_PAPERS = [
   {
     "id": "P001",
     "title": "The Ripple Effects of China's College Expansion on American Universities",
-    "authors": "Ruixue Jia (UCSD); Gaurav Khanna (UCSD); Hongbin Li (Stanford University); Yuli Xu (Stanford University)",
+    "authors": "Ruixue Jia; Gaurav Khanna; Hongbin Li; Yuli Xu",
     "presenter": "Yuli Xu",
     "email": "yulixu.econ@gmail.com",
     "affiliation": "Stanford University",
@@ -180,12 +364,13 @@ const PAPERS = [
     "group": "Causal Impacts of Education Policies and Practices",
     "organizer": "Yang Song (Colgate University)",
     "chair": "Paul Glewwe (University of Minnesota)",
-    "keywords": "higher education; college expansion; China; international students"
+    "keywords": "higher education; college expansion; China; international students",
+    "pdf": ""
   },
   {
     "id": "P002",
     "title": "Teacher Value Added and Classroom Practices in Vietnam",
-    "authors": "Pedro Carneiro (UCL/IFS/CEMMAP); Paul Glewwe (University of Minnesota); Anusha Guha (IFS); Sonya Krutikova (IFS / University of Manchester)",
+    "authors": "Pedro Carneiro; Paul Glewwe; Anusha Guha; Sonya Krutikova",
     "presenter": "Paul Glewwe",
     "email": "pglewwe@umn.edu",
     "affiliation": "University of Minnesota",
@@ -193,12 +378,13 @@ const PAPERS = [
     "group": "Causal Impacts of Education Policies and Practices",
     "organizer": "Yang Song (Colgate University)",
     "chair": "Paul Glewwe (University of Minnesota)",
-    "keywords": "teacher quality; value added; Vietnam; education"
+    "keywords": "teacher quality; value added; Vietnam; education",
+    "pdf": ""
   },
   {
     "id": "P003",
     "title": "Beyond Compulsory Schooling: Parental Education and Child Health in China",
-    "authors": "Shiyu Cheng (Liaoning University); Xiaozhou Ding (South Dakota State University); Yaxiang Song (Creighton University)",
+    "authors": "Shiyu Cheng; Xiaozhou Ding; Yaxiang Song",
     "presenter": "Yaxiang Song",
     "email": "yaxiangsong@creighton.edu",
     "affiliation": "Creighton University",
@@ -206,12 +392,13 @@ const PAPERS = [
     "group": "Causal Impacts of Education Policies and Practices",
     "organizer": "Yang Song (Colgate University)",
     "chair": "Paul Glewwe (University of Minnesota)",
-    "keywords": "parental education; child health; China; schooling"
+    "keywords": "parental education; child health; China; schooling",
+    "pdf": ""
   },
   {
     "id": "P004",
     "title": "Returns to Elite Colleges in China: Evidence from a Regression Discontinuity Design",
-    "authors": "Le Kang (Nanjing University); Guofeng Pan (Renmin University of China); Yang Song (Colgate University)",
+    "authors": "Le Kang; Guofeng Pan; Yang Song",
     "presenter": "Yang Song",
     "email": "ysong@colgate.edu",
     "affiliation": "Colgate University",
@@ -219,12 +406,13 @@ const PAPERS = [
     "group": "Causal Impacts of Education Policies and Practices",
     "organizer": "Yang Song (Colgate University)",
     "chair": "Paul Glewwe (University of Minnesota)",
-    "keywords": "returns to education; elite college; China; regression discontinuity"
+    "keywords": "returns to education; elite college; China; regression discontinuity",
+    "pdf": ""
   },
   {
     "id": "P005",
     "title": "Identifying Hidden Mathematical Talent: Experimental Evidence from Rural China",
-    "authors": "Stephen L. DesJardins (University of Michigan); Mengying Peng (Hitotsubashi University); Xiaoyang Ye (Amazon/Yu Soon Lab)",
+    "authors": "Stephen L. DesJardins; Mengying Peng; Xiaoyang Ye",
     "presenter": "Mengying Peng",
     "email": "mengying.peng@r.hit-u.ac.jp",
     "affiliation": "Hitotsubashi University",
@@ -232,7 +420,8 @@ const PAPERS = [
     "group": "Causal Impacts of Education Policies and Practices",
     "organizer": "Yang Song (Colgate University)",
     "chair": "Paul Glewwe (University of Minnesota)",
-    "keywords": "STEM talent; rural China; field experiment; information frictions"
+    "keywords": "STEM talent; rural China; field experiment; information frictions",
+    "pdf": ""
   },
   {
     "id": "P006",
@@ -242,93 +431,100 @@ const PAPERS = [
     "email": "",
     "affiliation": "",
     "type": "Proposed",
-    "group": "Field Experiments on Social Interactions and Gender (proposed by Aurelia Di)",
+    "group": "Field Experiments on Social Interactions and Gender",
     "organizer": "Aurelia Aochun Di (UCLA Anderson)",
     "chair": "",
-    "keywords": "public goods; field experiment; peer information; social norms"
+    "keywords": "public goods; field experiment; peer information; social norms",
+    "pdf": ""
   },
   {
     "id": "P007",
     "title": "Gender Mingling and Dating Market Dynamics: Evidence from a Sex Education Field Experiment",
-    "authors": "Zhihan Cui; Fangwen Lu; Xuezheng Qin; Jinxian Yao; [co-authors]",
+    "authors": "Zhihan Cui; Fangwen Lu; Xuezheng Qin; Jinxian Yao",
     "presenter": "Fangwen Lu",
     "email": "",
     "affiliation": "",
     "type": "Proposed",
-    "group": "Field Experiments on Social Interactions and Gender (proposed by Aurelia Di)",
+    "group": "Field Experiments on Social Interactions and Gender",
     "organizer": "Aurelia Aochun Di (UCLA Anderson)",
     "chair": "",
-    "keywords": "dating market; gender; field experiment; sex education"
+    "keywords": "dating market; gender; field experiment; sex education",
+    "pdf": ""
   },
   {
     "id": "P008",
     "title": "Peer Personality, Perceptions of Gender Inequality, and Academic Performance",
-    "authors": "Aurelia Aochun Di (UCLA Anderson)",
+    "authors": "Aurelia Aochun Di",
     "presenter": "Aurelia Aochun Di",
     "email": "",
     "affiliation": "UCLA Anderson School of Management",
     "type": "Proposed",
-    "group": "Field Experiments on Social Interactions and Gender (proposed by Aurelia Di)",
+    "group": "Field Experiments on Social Interactions and Gender",
     "organizer": "Aurelia Aochun Di (UCLA Anderson)",
     "chair": "",
-    "keywords": "peer effects; personality; gender inequality; academic performance"
+    "keywords": "peer effects; personality; gender inequality; academic performance",
+    "pdf": ""
   },
   {
     "id": "P009",
     "title": "When the Opportunity Presents: Female Labor Reaction to Gender Quota on Boards",
-    "authors": "Jing Li (Zhejiang University); Man Zhang (NUS / Institute of Real Estate and Urban Studies)",
+    "authors": "Jing Li; Man Zhang",
     "presenter": "Jing Li",
     "email": "jingli@nus.edu.sg",
     "affiliation": "National University of Singapore",
     "type": "Proposed",
-    "group": "Gender, Health, and Labor Markets (proposed by Jing Li)",
+    "group": "Gender, Health, and Labor Markets",
     "organizer": "Jing Li (NUS)",
     "chair": "",
-    "keywords": "gender quota; board diversity; human capital; female labor"
+    "keywords": "gender quota; board diversity; human capital; female labor",
+    "pdf": ""
   },
   {
     "id": "P010",
     "title": "Local Health Rules, Distant Economic Effects: Public-Health Spillovers Through Family Ties",
-    "authors": "Haiqiang Chen (Shenzhen University); Jing Li (Zhejiang University); Wenlan Qian (NUS Business School)",
+    "authors": "Haiqiang Chen; Jing Li; Wenlan Qian",
     "presenter": "Jing Li",
     "email": "jingli@nus.edu.sg",
     "affiliation": "National University of Singapore",
     "type": "Proposed",
-    "group": "Gender, Health, and Labor Markets (proposed by Jing Li)",
+    "group": "Gender, Health, and Labor Markets",
     "organizer": "Jing Li (NUS)",
     "chair": "",
-    "keywords": "public health; spillovers; social networks; consumer spending"
+    "keywords": "public health; spillovers; social networks; consumer spending",
+    "pdf": ""
   },
   {
     "id": "P011",
     "title": "Beyond Fares: Multimarket Contact and Capacity Discipline in Airline Markets",
-    "authors": "Chen Zhang (University of California, Irvine)",
+    "authors": "Chen Zhang",
     "presenter": "Chen Zhang",
     "email": "chenz8@uci.edu",
     "affiliation": "University of California, Irvine",
     "type": "Proposed",
-    "group": "Industrial Organization: Airline Markets (proposed by Chen Zhang)",
+    "group": "Industrial Organization: Airline Markets",
     "organizer": "Chen Zhang (UC Irvine)",
     "chair": "",
-    "keywords": "multimarket contact; airline; tacit collusion; non-price competition"
+    "keywords": "multimarket contact; airline; tacit collusion; non-price competition",
+    "pdf": ""
   },
   {
     "id": "P012",
     "title": "Beyond Price Effects: A Dynamic Structural Analysis of Airline Mergers with Endogenous Pricing and Flight Frequency",
-    "authors": "Chen Zhang (University of California, Irvine)",
+    "authors": "Chen Zhang",
     "presenter": "Chen Zhang",
     "email": "chenz8@uci.edu",
     "affiliation": "University of California, Irvine",
     "type": "Proposed",
-    "group": "Industrial Organization: Airline Markets (proposed by Chen Zhang)",
+    "group": "Industrial Organization: Airline Markets",
     "organizer": "Chen Zhang (UC Irvine)",
     "chair": "",
-    "keywords": "airline mergers; consumer welfare; structural model; flight frequency"
+    "keywords": "airline mergers; consumer welfare; structural model; flight frequency",
+    "pdf": ""
   },
   {
     "id": "P013",
     "title": "Dynamic Effects of the EU Carbon Border Adjustment Mechanism",
-    "authors": "Wei Wang (The Ohio State University); Yongyang Cai (The Ohio State University)",
+    "authors": "Wei Wang; Yongyang Cai",
     "presenter": "Wei Wang",
     "email": "",
     "affiliation": "The Ohio State University",
@@ -336,12 +532,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "CBAM; Climate Policy; International Trade"
+    "keywords": "CBAM; climate policy; international trade",
+    "pdf": ""
   },
   {
     "id": "P014",
     "title": "Demographics and Elite Persistence: Evidence from China's Fertility Restrictions",
-    "authors": "Qingyuan Chai (NYU Shanghai); Justin Jihao Hong (HKUST, GZ)",
+    "authors": "Qingyuan Chai; Justin Jihao Hong",
     "presenter": "Justin Jihao Hong",
     "email": "",
     "affiliation": "HKUST (GZ)",
@@ -349,12 +546,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "fertility; elite; China; intergenerational persistence"
+    "keywords": "fertility; elite; China; intergenerational persistence",
+    "pdf": ""
   },
   {
     "id": "P015",
     "title": "Financial Technology Spillover and Investment Behavior: Financial Literacy, Risk Taking, and Portfolio Choice",
-    "authors": "Jinwei (Will) Zhang (University of Washington); Pengyu Wang (University of Washington / Foster School)",
+    "authors": "Jinwei (Will) Zhang; Pengyu Wang",
     "presenter": "Jinwei (Will) Zhang",
     "email": "liwzhang@uw.edu",
     "affiliation": "University of Washington",
@@ -362,12 +560,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "Digital finance; financial market participation; China Household Finance Survey"
+    "keywords": "digital finance; financial market participation; China Household Finance Survey",
+    "pdf": ""
   },
   {
     "id": "P016",
     "title": "Geopolitical Conflict and Trade Flows: The Impact of the U.S.–Israel–Iran War on China's Trade and Supply Chains",
-    "authors": "Temitope Titus Abodunde (University of Lagos); Olufemi Saibu (University of Lagos)",
+    "authors": "Temitope Titus Abodunde; Olufemi Saibu",
     "presenter": "Temitope Titus Abodunde",
     "email": "",
     "affiliation": "University of Lagos",
@@ -375,12 +574,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "Geopolitical Risk; Supply Chain Disruptions; China Trade Dynamics"
+    "keywords": "geopolitical risk; supply chain disruptions; China trade dynamics",
+    "pdf": ""
   },
   {
     "id": "P017",
     "title": "Peer Effects of Fetal Origins: Evidence from Randomized Classroom Assignments in China",
-    "authors": "Jingwen Dong (Zhejiang University); Chenye Gong (Renmin University of China); Yinghao Pan (Renmin University of China); Yuan Wang (Renmin University of China)",
+    "authors": "Jingwen Dong; Chenye Gong; Yinghao Pan; Yuan Wang",
     "presenter": "Jingwen Dong",
     "email": "12401011@zju.edu.cn",
     "affiliation": "Zhejiang University",
@@ -388,12 +588,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "Fetal Origins Hypothesis; Birthweight; Peer effect"
+    "keywords": "fetal origins hypothesis; birthweight; peer effect",
+    "pdf": ""
   },
   {
     "id": "P018",
     "title": "Marriage Squeeze and Education Choice: Evidence from China's Imbalanced Sex Ratios",
-    "authors": "Shuning Li (University of Western Ontario)",
+    "authors": "Shuning Li",
     "presenter": "Shuning Li",
     "email": "sli2744@uwo.ca",
     "affiliation": "University of Western Ontario",
@@ -401,7 +602,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "Marriage squeeze; Educational investment; Sex ratios"
+    "keywords": "marriage squeeze; educational investment; sex ratios",
+    "pdf": ""
   },
   {
     "id": "P019",
@@ -414,7 +616,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "peer effects; parental aspirations; student achievement"
+    "keywords": "peer effects; parental aspirations; student achievement",
+    "pdf": "01_Peer_parental_aspiration-2026.pdf"
   },
   {
     "id": "P020",
@@ -427,7 +630,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "anonymization; information; privacy"
+    "keywords": "anonymization; information; privacy",
+    "pdf": "Anonymization and Information Loss.pdf"
   },
   {
     "id": "P021",
@@ -440,7 +644,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "attention; green transition; sustainable choice; Singapore"
+    "keywords": "attention; green transition; sustainable choice; Singapore",
+    "pdf": "Attention and Green Delivery 260430.pdf"
   },
   {
     "id": "P022",
@@ -453,7 +658,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "shadow education; tutoring; human capital; China"
+    "keywords": "shadow education; tutoring; human capital; China",
+    "pdf": "CDS_Shadow Education and Human Capital Formulation_Abstract_20260430.pdf"
   },
   {
     "id": "P023",
@@ -466,12 +672,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "industrial policy; government guidance funds; labor demand; China"
+    "keywords": "industrial policy; government guidance funds; labor demand; China",
+    "pdf": "CES_ASSA_2027_Zhao_Zhu.pdf"
   },
   {
     "id": "P024",
     "title": "The Influence of Adult Children's Education on the Health Behavior of Parents",
-    "authors": "Chen An (Zhongnan University of Economics and Law); Zhaoxue Ci",
+    "authors": "Chen An; Zhaoxue Ci",
     "presenter": "Chen An",
     "email": "",
     "affiliation": "Zhongnan University of Economics and Law",
@@ -479,12 +686,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "intergenerational; health behavior; elderly; China"
+    "keywords": "intergenerational; health behavior; elderly; China",
+    "pdf": "Chen An_Zhongnan University of Economics and Law_CES Sessions at the 2027 ASSA Meeting.pdf"
   },
   {
     "id": "P025",
     "title": "Thin Sets Are Not Equally Thin: Minimax Learning of Submanifold Integrals",
-    "authors": "Xiaohong Chen (Yale University); Wayne Yuan Gao (University of Pennsylvania)",
+    "authors": "Xiaohong Chen; Wayne Yuan Gao",
     "presenter": "Wayne Yuan Gao",
     "email": "waynegao@upenn.edu",
     "affiliation": "University of Pennsylvania",
@@ -492,7 +700,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "submanifold; minimax rate; nonparametric estimation; econometrics"
+    "keywords": "submanifold; minimax rate; nonparametric estimation; econometrics",
+    "pdf": "ChenGao2026_Manifold.pdf"
   },
   {
     "id": "P026",
@@ -505,7 +714,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "highway; forest quality; environment; infrastructure"
+    "keywords": "highway; forest quality; environment; infrastructure",
+    "pdf": "Cong_Feng.pdf"
   },
   {
     "id": "P027",
@@ -518,7 +728,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "expressway; exports; spatial divergence; infrastructure"
+    "keywords": "expressway; exports; spatial divergence; infrastructure",
+    "pdf": "Expressway and Spatial Divergence.pdf"
   },
   {
     "id": "P028",
@@ -531,7 +742,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "IPO reform; venture capital; China; financial markets"
+    "keywords": "IPO reform; venture capital; China; financial markets",
+    "pdf": "Fei_Hege_Jia_2026.pdf"
   },
   {
     "id": "P029",
@@ -544,7 +756,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "monetary policy; communication; central bank; learning"
+    "keywords": "monetary policy; communication; central bank; learning",
+    "pdf": "Fok - Monetary Policy Communication under Learning and Strategic Motives.pdf"
   },
   {
     "id": "P030",
@@ -557,12 +770,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "anti-corruption; maternal health; hospitals; China"
+    "keywords": "anti-corruption; maternal health; hospitals; China",
+    "pdf": "From Gray Income to Maternal and Infant Health Gains.pdf"
   },
   {
     "id": "P031",
     "title": "From In-Sample Monotonicity to Out-of-Sample Returns",
-    "authors": "Jiawei Fan (Brandeis University)",
+    "authors": "Jiawei Fan",
     "presenter": "Jiawei Fan",
     "email": "",
     "affiliation": "Brandeis University",
@@ -570,12 +784,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "asset pricing; factor models; out-of-sample; stock returns"
+    "keywords": "asset pricing; factor models; out-of-sample; stock returns",
+    "pdf": "From In-Sample Monotonicity to Out-of-Sample Returns-Jiawei Fan.pdf"
   },
   {
     "id": "P032",
     "title": "High-Frequency Price Signals, Thermal Flexibility, and Renewable Integration: Evidence from China's Electricity Market Reform",
-    "authors": "Min Wang (Peking University); Yutong Yang (Peking University); Chi Zhang (Peking University); Wende Zhang (Peking University)",
+    "authors": "Min Wang; Yutong Yang; Chi Zhang; Wende Zhang",
     "presenter": "Min Wang",
     "email": "",
     "affiliation": "Peking University",
@@ -583,7 +798,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "electricity market; renewable energy; price signals; China"
+    "keywords": "electricity market; renewable energy; price signals; China",
+    "pdf": "High-Frequency Price Signals, Thermal Flexibility, and Renewable Integration Evidence from China's Electricity Market Reform.pdf"
   },
   {
     "id": "P033",
@@ -596,12 +812,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "working from home; productivity; externalities; welfare"
+    "keywords": "working from home; productivity; externalities; welfare",
+    "pdf": "HuilinZhangCES_ASSA_submission.pdf"
   },
   {
     "id": "P034",
     "title": "Partisan Borders: Political Ideology and Frictions in Interstate Job-to-Job Flows",
-    "authors": "[Author information from paper file]",
+    "authors": "[see PDF]",
     "presenter": "",
     "email": "",
     "affiliation": "",
@@ -609,7 +826,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "political partisanship; job mobility; labor market frictions; polarization"
+    "keywords": "political partisanship; job mobility; labor market frictions; polarization",
+    "pdf": "Job_flows_2025.pdf"
   },
   {
     "id": "P035",
@@ -622,12 +840,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "LLM; price discovery; AI adoption; financial markets"
+    "keywords": "LLM; price discovery; AI adoption; financial markets",
+    "pdf": "Large_Language_Models__Price_Discovery__and_the_Limits_to_Adoption.pdf"
   },
   {
     "id": "P036",
     "title": "Counter-Cyclical Market Price Efficiency and Stock Liquidity",
-    "authors": "[Author information from paper file]",
+    "authors": "[see PDF]",
     "presenter": "",
     "email": "",
     "affiliation": "",
@@ -635,7 +854,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "market efficiency; stock liquidity; business cycle; China"
+    "keywords": "market efficiency; stock liquidity; business cycle; China",
+    "pdf": "Liq counter 1_9.pdf"
   },
   {
     "id": "P037",
@@ -648,7 +868,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "political stigma; bureaucracy; Ming China; career outcomes"
+    "keywords": "political stigma; bureaucracy; Ming China; career outcomes",
+    "pdf": "Loyalty_Screening_CG_Draft.pdf"
   },
   {
     "id": "P038",
@@ -661,12 +882,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "trade war; innovation; China; US tariffs"
+    "keywords": "trade war; innovation; China; US tariffs",
+    "pdf": "Market Contraction and Innovation Divergence_MMTZ.pdf"
   },
   {
     "id": "P039",
     "title": "Revealing Hidden Liabilities: Environmental Activism and Capital Structure",
-    "authors": "[Author information from paper file]",
+    "authors": "[see PDF]",
     "presenter": "",
     "email": "",
     "affiliation": "",
@@ -674,7 +896,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "NGO; environmental activism; capital structure; corporate finance"
+    "keywords": "NGO; environmental activism; capital structure; corporate finance",
+    "pdf": "NGO and LEV_april17.pdf"
   },
   {
     "id": "P040",
@@ -687,12 +910,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "housing cycle; credit expansion; real estate; boom-bust"
+    "keywords": "housing cycle; credit expansion; real estate; boom-bust",
+    "pdf": "Paper_HousingCycle_March.2026.pdf"
   },
   {
     "id": "P041",
     "title": "Racial Disparities in the U.S. Mortgage Market: Evidence from Data Privacy Legislation",
-    "authors": "Xiangyu Lin (Nankai University); S. Sarah Zhang (University of Manchester)",
+    "authors": "Xiangyu Lin; S. Sarah Zhang",
     "presenter": "Xiangyu Lin",
     "email": "xiangyu.xl.lin@gmail.com",
     "affiliation": "Nankai University",
@@ -700,7 +924,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "racial disparities; mortgage market; data privacy; lending"
+    "keywords": "racial disparities; mortgage market; data privacy; lending",
+    "pdf": "Racial Disparities in the U.S. Mortgage Market_25Dec.pdf"
   },
   {
     "id": "P042",
@@ -713,7 +938,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "cheap talk; information disclosure; credible communication; mechanism design"
+    "keywords": "cheap talk; information disclosure; credible communication; mechanism design",
+    "pdf": "Repeated Cheap Talk with Disclose Signal History abstract.pdf"
   },
   {
     "id": "P043",
@@ -726,12 +952,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "sustainable aviation fuel; market power; network effects; structural analysis"
+    "keywords": "sustainable aviation fuel; market power; network effects; structural analysis",
+    "pdf": "Shengzhuo_Yuan.pdf"
   },
   {
     "id": "P044",
     "title": "QE Without RE: Balance-Sheet Interventions and Expectational Coordination under Imperfect Knowledge",
-    "authors": "Tengyuan Liang (University of California, Irvine)",
+    "authors": "Tengyuan Liang",
     "presenter": "Tengyuan Liang",
     "email": "",
     "affiliation": "University of California, Irvine",
@@ -739,12 +966,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "quantitative easing; rational expectations; monetary policy; expectational coordination"
+    "keywords": "quantitative easing; rational expectations; monetary policy; expectational coordination",
+    "pdf": "Tengyuan_Liang.pdf"
   },
   {
     "id": "P045",
     "title": "Transmission of Tariff Shocks via Institutional Investors",
-    "authors": "Yiqun Li (Boston University Questrom School of Business)",
+    "authors": "Yiqun Li",
     "presenter": "Yiqun Li",
     "email": "",
     "affiliation": "Boston University",
@@ -752,12 +980,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "tariff shocks; institutional investors; trade policy; financial markets"
+    "keywords": "tariff shocks; institutional investors; trade policy; financial markets",
+    "pdf": "Transmission_of_Tariff_Shocks_via_Institutional_Investors.pdf"
   },
   {
     "id": "P046",
     "title": "Demand Spillovers from Star Employees: Evidence from Intra-Firm Reassignment Across Brokerage Stores",
-    "authors": "Wang Ruiqi (National University of Singapore)",
+    "authors": "Wang Ruiqi",
     "presenter": "Wang Ruiqi",
     "email": "",
     "affiliation": "National University of Singapore",
@@ -765,12 +994,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "star employees; demand spillovers; firm performance; brokerage"
+    "keywords": "star employees; demand spillovers; firm performance; brokerage",
+    "pdf": "Wang_CES_ASSA_2027_Submission.pdf"
   },
   {
     "id": "P047",
     "title": "Matching Efficiency and Unemployment Fluctuations",
-    "authors": "Wenxuan Wang (Toulouse School of Economics)",
+    "authors": "Wenxuan Wang",
     "presenter": "Wenxuan Wang",
     "email": "wenxuan.wang@tse-fr.eu",
     "affiliation": "Toulouse School of Economics",
@@ -778,12 +1008,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "matching efficiency; unemployment; business cycle; labor market"
+    "keywords": "matching efficiency; unemployment; business cycle; labor market",
+    "pdf": "Wang_MatchingEfficiency_Uncertainty_Unemployment.pdf"
   },
   {
     "id": "P048",
     "title": "War and Human Capital Accumulation: Evidence from the Sino-Japanese War",
-    "authors": "Jinyuan Liu (CUFE)",
+    "authors": "Jinyuan Liu",
     "presenter": "Jinyuan Liu",
     "email": "",
     "affiliation": "Central University of Finance and Economics",
@@ -791,7 +1022,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "war; human capital; Sino-Japanese War; historical economics"
+    "keywords": "war; human capital; Sino-Japanese War; historical economics",
+    "pdf": "War_and_Human_Capital_Accumulation_CUFE_JinyuanLiu.pdf"
   },
   {
     "id": "P049",
@@ -804,7 +1036,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "housing; beliefs; opportunity; wealth inequality"
+    "keywords": "housing; beliefs; opportunity; wealth inequality",
+    "pdf": "Wenyi_Zhang.pdf"
   },
   {
     "id": "P050",
@@ -817,12 +1050,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "cash transfer; work incentives; college enrollment; household behavior"
+    "keywords": "cash transfer; work incentives; college enrollment; household behavior",
+    "pdf": "Xiongfei_Guo.pdf"
   },
   {
     "id": "P051",
     "title": "Two Labor Markets, One Transition: Asymmetric Employment Consequences of China's New Normal for Youth and Aggregate Unemployment",
-    "authors": "Yupeng Hua (Auburn University)",
+    "authors": "Yupeng Hua",
     "presenter": "Yupeng Hua",
     "email": "",
     "affiliation": "Auburn University",
@@ -830,12 +1064,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "youth unemployment; China; economic transition; dual labor market"
+    "keywords": "youth unemployment; China; economic transition; dual labor market",
+    "pdf": "Yupeng_Hua_Auburn.pdf"
   },
   {
     "id": "P052",
     "title": "Government Digital Procurement, Cost Structure, and Firm Innovative Economic Efficiency",
-    "authors": "Yupeng Zhang (ECNU); Bingxin Zheng (ECNU)",
+    "authors": "Yupeng Zhang; Bingxin Zheng",
     "presenter": "Yupeng Zhang",
     "email": "",
     "affiliation": "East China Normal University",
@@ -843,7 +1078,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "digital procurement; government; innovation; firm efficiency"
+    "keywords": "digital procurement; government; innovation; firm efficiency",
+    "pdf": "Zhang_Zheng_Government_Digital_Procurement_ASSA2027.pdf"
   },
   {
     "id": "P053",
@@ -856,7 +1092,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "fiscal policy; misallocation; Japan; lost decade"
+    "keywords": "fiscal policy; misallocation; Japan; lost decade",
+    "pdf": "ZhenheLin_JapanLostDecades.pdf"
   },
   {
     "id": "P054",
@@ -869,12 +1106,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "state sector; productivity; selective exit; China"
+    "keywords": "state sector; productivity; selective exit; China",
+    "pdf": "ZhongYutong_JMP.pdf"
   },
   {
     "id": "P055",
     "title": "The Long-Term Impact of Fertility on Cognitive Health: Son Preference, Missing Girls, and the One-Child Policy",
-    "authors": "Castor Comploj (University of Groningen)",
+    "authors": "Castor Comploj",
     "presenter": "Castor Comploj",
     "email": "",
     "affiliation": "University of Groningen",
@@ -882,12 +1120,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "fertility; cognitive health; one-child policy; son preference"
+    "keywords": "fertility; cognitive health; one-child policy; son preference",
+    "pdf": "comploj2026-jmp-Castor-Comploj - Groningen.pdf"
   },
   {
     "id": "P056",
     "title": "Endogenous Supplier Sourcing under Delivery Risk and its Macro Implications",
-    "authors": "Manchun Wang (Boston College)",
+    "authors": "Manchun Wang",
     "presenter": "Manchun Wang",
     "email": "",
     "affiliation": "Boston College",
@@ -895,7 +1134,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "supply chains; delivery risk; supplier sourcing; macroeconomics"
+    "keywords": "supply chains; delivery risk; supplier sourcing; macroeconomics",
+    "pdf": "draft_deliveryrisk.pdf"
   },
   {
     "id": "P057",
@@ -908,12 +1148,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "markups; misallocation; banking; deposits"
+    "keywords": "markups; misallocation; banking; deposits",
+    "pdf": "draft_misa.pdf"
   },
   {
     "id": "P058",
     "title": "Time-to-build Capital, Network and Business Cycle",
-    "authors": "Dimin Liu; Manchun Wang (Boston College)",
+    "authors": "Dimin Liu; Manchun Wang",
     "presenter": "Dimin Liu",
     "email": "",
     "affiliation": "",
@@ -921,7 +1162,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "time-to-build; capital; network; business cycle"
+    "keywords": "time-to-build; capital; network; business cycle",
+    "pdf": "draft_ttb capital.pdf"
   },
   {
     "id": "P059",
@@ -934,12 +1176,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "LLM; AI agents; bank runs; game theory"
+    "keywords": "LLM; AI agents; bank runs; game theory",
+    "pdf": "llm_abm.pdf"
   },
   {
     "id": "P060",
     "title": "The Evolution of Urban-Rural Income and Consumption Inequality in Transitioning China",
-    "authors": "Dan Yang (Louisiana State University); Fang Yang (Louisiana State University)",
+    "authors": "Dan Yang; Fang Yang",
     "presenter": "Dan Yang",
     "email": "",
     "affiliation": "Louisiana State University",
@@ -947,12 +1190,13 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "urban-rural inequality; income; consumption; China transition"
+    "keywords": "urban-rural inequality; income; consumption; China transition",
+    "pdf": "main_V2025.pdf"
   },
   {
     "id": "P061",
     "title": "The AI Growth Paradox: Incumbent Entrenchment and the Distribution of Innovation",
-    "authors": "Guiyou Guan (University of California, Irvine)",
+    "authors": "Guiyou Guan",
     "presenter": "Guiyou Guan",
     "email": "",
     "affiliation": "University of California, Irvine",
@@ -960,7 +1204,8 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "AI; innovation; incumbent firms; growth"
+    "keywords": "AI; innovation; incumbent firms; growth",
+    "pdf": "main_paper.pdf"
   },
   {
     "id": "P062",
@@ -973,200 +1218,394 @@ const PAPERS = [
     "group": "",
     "organizer": "",
     "chair": "",
-    "keywords": "subway; infrastructure; local government debt; China"
+    "keywords": "subway; infrastructure; local government debt; China",
+    "pdf": "subway_bond.pdf"
   }
 ];
 
-// ── State ────────────────────────────────────────────────────────────────────
-let paperStates = {};   // id -> status string
-let activeFilter = 'status:all';
-let syncDots = {};
+// ── Runtime state ────────────────────────────────────────────────────────────
+let allPapers = [...BASE_PAPERS];          // base + added
+let paperStates = {};                      // id -> status
+let customPapers = {};                     // id -> paper (added via UI)
+let deletedIds   = new Set();              // ids deleted via UI
+let changes = [];                          // {ts, user, id, title, from, to}
+let currentUser = null;
+let presenceRef = null;
 
-const STATUSES = ['Pending','Accept','Poster','Waitlist','Reject','Withdrawn'];
-const STATUS_CLASS = {
-  'Pending': 's-pending', 'Accept': 's-accept', 'Poster': 's-poster',
-  'Waitlist': 's-waitlist', 'Reject': 's-reject', 'Withdrawn': 's-withdrawn'
-};
+const STATUSES = ['Pending','Accept','Poster','Waitlist','Reject'];
+const STATUS_LABEL = {Pending:'Pending',Accept:'Accept (Oral)',Poster:'Accept (Poster)',Waitlist:'Waitlist',Reject:'Reject'};
+const STATUS_CLASS  = {Pending:'',Accept:'status-accept',Poster:'status-poster',Waitlist:'status-waitlist',Reject:'status-reject'};
+const STATUS_COLOR  = {Pending:'#a0aec0',Accept:'#48bb78',Poster:'#4299e1',Waitlist:'#ecc94b',Reject:'#fc8181'};
 
-// ── Firebase sync ─────────────────────────────────────────────────────────────
-function fbRef(id) { return db.ref(`${FB_NODE}/states/${id}`); }
+// ── Auth / login ─────────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById('roleOverlay').style.display = 'none';
+  document.getElementById('loginOverlay').style.display = 'flex';
+}
+function doLogin(name) {
+  currentUser = name;
+  localStorage.setItem('ces2027_user', name);
+  document.getElementById('roleOverlay').style.display  = 'none';
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('currentUserDisplay').textContent = name;
+  const badge = document.getElementById('userBadge');
+  badge.style.display = 'flex';
+  initFirebase();
+}
+function doLogout() {
+  if (presenceRef) presenceRef.remove();
+  currentUser = null;
+  localStorage.removeItem('ces2027_user');
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('roleOverlay').style.display = 'flex';
+}
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('ces2027_user');
+  if (saved) { doLogin(saved); } else { document.getElementById('roleOverlay').style.display = 'flex'; }
+});
 
-function loadFromFirebase() {
-  db.ref(`${FB_NODE}/states`).on('value', snap => {
+// ── Firebase init ─────────────────────────────────────────────────────────────
+function initFirebase() {
+  setSyncState('syncing');
+  // States
+  db.ref(`${NODE}/states`).on('value', snap => {
     const data = snap.val() || {};
-    PAPERS.forEach(p => { paperStates[p.id] = data[p.id] || 'Pending'; });
-    updateCounters();
-    renderCards();
+    allPapers.forEach(p => { paperStates[p.id] = data[p.id] || 'Pending'; });
+    updateStats(); applyFilters(); renderOrganized();
+    setSyncState('connected');
+  });
+  // Custom papers (added via UI)
+  db.ref(`${NODE}/custom_papers`).on('value', snap => {
+    customPapers = snap.val() || {};
+    rebuildPapers();
+  });
+  // Deleted papers
+  db.ref(`${NODE}/deleted_ids`).on('value', snap => {
+    const d = snap.val() || {};
+    deletedIds = new Set(Object.keys(d).filter(k => d[k]));
+    rebuildPapers();
+  });
+  // Changes log
+  db.ref(`${NODE}/changes`).on('value', snap => {
+    const raw = snap.val() || {};
+    changes = Object.values(raw).sort((a,b) => b.ts - a.ts);
+    document.getElementById('changeCount').textContent = changes.length;
+    renderChangeLog();
+  });
+  // Notes
+  db.ref(`${NODE}/notes`).on('value', snap => { renderNotes(snap.val() || {}); });
+  // Online presence
+  const uid = Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  presenceRef = db.ref(`${NODE}/online/${uid}`);
+  presenceRef.set(currentUser);
+  presenceRef.onDisconnect().remove();
+  db.ref(`${NODE}/online`).on('value', snap => {
+    const users = snap.val() || {};
+    const el = document.getElementById('onlineUsers');
+    el.innerHTML = Object.values(users).map(u =>
+      `<span class="online-user-badge">&#x1F7E2; ${escHtml(u)}</span>`).join('');
   });
 }
 
-function saveStatus(id, status) {
-  const dot = document.getElementById('dot-' + id);
-  if (dot) { dot.className = 'sync-dot syncing'; }
-  fbRef(id).set(status)
-    .then(() => { if (dot) dot.className = 'sync-dot synced'; })
-    .catch(() => { if (dot) dot.className = 'sync-dot error'; });
+function rebuildPapers() {
+  allPapers = [...BASE_PAPERS, ...Object.values(customPapers)]
+    .filter(p => !deletedIds.has(p.id));
+  document.getElementById('paperCountSubtitle').textContent = allPapers.length;
+  // Ensure states exist for all
+  allPapers.forEach(p => { if (!paperStates[p.id]) paperStates[p.id] = 'Pending'; });
+  updateStats(); applyFilters(); renderOrganized();
 }
 
-// ── Filter / search ───────────────────────────────────────────────────────────
-function setFilter(btn) {
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  activeFilter = btn.dataset.filter;
-  renderCards();
+function setSyncState(state) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  if (state === 'connected') { dot.className = 'sync-dot connected'; txt.textContent = 'Live'; }
+  else if (state === 'syncing') { dot.className = 'sync-dot syncing'; txt.textContent = 'Syncing…'; }
+  else { dot.className = 'sync-dot disconnected'; txt.textContent = 'Offline'; }
 }
 
-function matchesFilter(p) {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  if (q) {
-    const haystack = (p.title + ' ' + p.authors + ' ' + p.keywords + ' ' + p.group).toLowerCase();
-    if (!haystack.includes(q)) return false;
-  }
-  if (activeFilter.startsWith('status:')) {
-    const s = activeFilter.split(':')[1];
-    if (s !== 'all' && paperStates[p.id] !== s) return false;
-  }
-  if (activeFilter.startsWith('type:')) {
-    const t = activeFilter.split(':')[1];
-    if (t !== 'all' && p.type !== t) return false;
-  }
-  return true;
+// ── Status change ─────────────────────────────────────────────────────────────
+function changeStatus(id, newStatus) {
+  const oldStatus = paperStates[id] || 'Pending';
+  if (oldStatus === newStatus) return;
+  paperStates[id] = newStatus;
+  db.ref(`${NODE}/states/${id}`).set(newStatus);
+  const paper = allPapers.find(p => p.id === id);
+  const entry = { ts: Date.now(), user: currentUser, id, title: paper ? paper.title : id, from: oldStatus, to: newStatus };
+  db.ref(`${NODE}/changes`).push(entry);
+  updateStats(); applyFilters(); renderOrganized();
 }
 
-// ── Render ────────────────────────────────────────────────────────────────────
-function renderCards() {
+// ── Stats bar ─────────────────────────────────────────────────────────────────
+function updateStats() {
+  const c = {Pending:0,Accept:0,Poster:0,Waitlist:0,Reject:0};
+  allPapers.forEach(p => { const s = paperStates[p.id]||'Pending'; if(c[s]!==undefined) c[s]++; });
+  const total = allPapers.length;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card stat-total"><div class="number">${total}</div><div class="label">Total</div></div>
+    <div class="stat-card stat-accept"><div class="number">${c.Accept}</div><div class="label">Accept (Oral)</div></div>
+    <div class="stat-card stat-poster"><div class="number">${c.Poster}</div><div class="label">Accept (Poster)</div></div>
+    <div class="stat-card stat-waitlist"><div class="number">${c.Waitlist}</div><div class="label">Waitlist</div></div>
+    <div class="stat-card stat-reject"><div class="number">${c.Reject}</div><div class="label">Reject</div></div>
+  `;
+  ['pending','accept','poster','waitlist','reject'].forEach(s => {
+    const k = s.charAt(0).toUpperCase()+s.slice(1);
+    const el = document.getElementById(`sf_${s}_count`);
+    if (el) el.textContent = c[k]??c[k];
+  });
+  document.getElementById('sf_pending_count').textContent = c.Pending;
+  document.getElementById('sf_accept_count').textContent  = c.Accept;
+  document.getElementById('sf_poster_count').textContent  = c.Poster;
+  document.getElementById('sf_waitlist_count').textContent= c.Waitlist;
+  document.getElementById('sf_reject_count').textContent  = c.Reject;
+  const byType = {Organized:0,Proposed:0,Individual:0};
+  allPapers.forEach(p => { if(byType[p.type]!==undefined) byType[p.type]++; });
+  document.getElementById('tf_organized_count').textContent  = byType.Organized;
+  document.getElementById('tf_proposed_count').textContent   = byType.Proposed;
+  document.getElementById('tf_individual_count').textContent = byType.Individual;
+}
+
+// ── Filters & render ──────────────────────────────────────────────────────────
+function applyFilters() {
+  const q  = document.getElementById('searchBox').value.toLowerCase();
+  const sf = {Pending: document.getElementById('sf_pending').checked,
+              Accept:  document.getElementById('sf_accept').checked,
+              Poster:  document.getElementById('sf_poster').checked,
+              Waitlist:document.getElementById('sf_waitlist').checked,
+              Reject:  document.getElementById('sf_reject').checked };
+  const tf = {Organized: document.getElementById('tf_organized').checked,
+              Proposed:  document.getElementById('tf_proposed').checked,
+              Individual:document.getElementById('tf_individual').checked };
   const sort = document.getElementById('sortSelect').value;
-  let papers = PAPERS.filter(matchesFilter);
-  papers.sort((a, b) => {
-    if (sort === 'title')  return a.title.localeCompare(b.title);
-    if (sort === 'status') return STATUSES.indexOf(paperStates[a.id]) - STATUSES.indexOf(paperStates[b.id]);
-    if (sort === 'type')   return a.type.localeCompare(b.type) || a.id.localeCompare(b.id);
+
+  let filtered = allPapers.filter(p => {
+    const s = paperStates[p.id]||'Pending';
+    if (!sf[s]) return false;
+    if (!tf[p.type]) return false;
+    if (q) {
+      const hay = (p.title+' '+p.authors+' '+p.keywords+' '+p.group+' '+p.presenter).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a,b) => {
+    if (sort==='title')  return a.title.localeCompare(b.title);
+    if (sort==='author') return a.authors.localeCompare(b.authors);
+    if (sort==='status') return STATUSES.indexOf(paperStates[a.id]||'Pending') - STATUSES.indexOf(paperStates[b.id]||'Pending');
+    if (sort==='type')   return a.type.localeCompare(b.type)||a.id.localeCompare(b.id);
     return a.id.localeCompare(b.id);
   });
 
-  document.getElementById('showingCount').textContent = papers.length;
-
-  const grid = document.getElementById('cardsGrid');
-  grid.innerHTML = papers.length === 0
-    ? '<div class="empty">No papers match the current filter.</div>'
-    : papers.map(cardHTML).join('');
-
-  papers.forEach(p => {
-    const sel = document.getElementById('sel-' + p.id);
-    if (sel) sel.className = 'status-select ' + (STATUS_CLASS[paperStates[p.id]] || 's-pending');
-  });
+  document.getElementById('resultCount').textContent = `${filtered.length} paper${filtered.length!==1?'s':''} shown`;
+  document.getElementById('paperList').innerHTML = filtered.length
+    ? filtered.map(renderCard).join('')
+    : '<div class="empty-state">No papers match the current filter.</div>';
 }
 
-function cardHTML(p) {
-  const status = paperStates[p.id] || 'Pending';
-  const selClass = STATUS_CLASS[status] || 's-pending';
-  const typeBadge = p.type === 'Organized' ? 'badge-organized' :
-                    p.type === 'Proposed'  ? 'badge-proposed'  : 'badge-individual';
-  const groupBadge = p.group ? `<span class="badge badge-group" title="Session: ${escHtml(p.group)}">
-    ${escHtml(p.group.length > 45 ? p.group.slice(0,43)+'…' : p.group)}</span>` : '';
+function renderCard(p) {
+  const status  = paperStates[p.id]||'Pending';
+  const sCls    = STATUS_CLASS[status]||'';
+  const sBadge  = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${STATUS_COLOR[status]};margin-right:3px;"></span>`;
+  const typeBadge = p.type==='Organized'?'badge-organized':p.type==='Proposed'?'badge-proposed':'badge-individual';
+  const groupBadge = p.group ? `<span class="badge badge-group">${escHtml(p.group.length>40?p.group.slice(0,38)+'…':p.group)}</span>` : '';
+  const pdfBadge = p.pdf ? `<a href="papers/${encodeURIComponent(p.pdf)}" target="_blank" class="badge badge-pdf" style="text-decoration:none;">&#x1F4C4; PDF</a>` : '';
+  const isCustom = !!customPapers[p.id];
 
   const options = STATUSES.map(s =>
-    `<option value="${s}" ${s === status ? 'selected' : ''}>${s === 'Accept' ? 'Accept (Oral)' : s === 'Poster' ? 'Accept (Poster)' : s}</option>`
+    `<option value="${s}" ${s===status?'selected':''}>${STATUS_LABEL[s]}</option>`
   ).join('');
 
-  return `<div class="card" id="card-${p.id}">
-    <div class="card-header">
-      <span class="card-id">${p.id}</span>
-      <span class="card-title">${escHtml(p.title)}</span>
+  return `<div class="paper-card ${sCls}" id="card-${p.id}">
+    <div class="paper-header">
+      <div style="flex:1;">
+        <div class="paper-title">${escHtml(p.title)}</div>
+        <div class="paper-meta">
+          <span>&#x1F464; ${escHtml(p.authors)}</span>
+          ${p.presenter?`<span>&#x1F3A4; ${escHtml(p.presenter)}</span>`:''}
+          ${p.affiliation?`<span>&#x1F3EB; ${escHtml(p.affiliation)}</span>`:''}
+          ${p.email?`<span><a href="mailto:${escHtml(p.email)}" style="color:#4299e1;">&#x2709; ${escHtml(p.email)}</a></span>`:''}
+        </div>
+        <div style="margin-top:6px;">
+          <span class="badge ${typeBadge}">${p.type}</span>
+          ${groupBadge}
+          ${pdfBadge}
+          ${isCustom?'<span class="badge" style="background:#fefcbf;color:#744210;">Added</span>':''}
+          <span style="font-size:11px;color:#a0aec0;">${escHtml(p.id)}</span>
+        </div>
+        ${p.keywords?`<div style="font-size:11px;color:#a0aec0;margin-top:4px;">Keywords: ${escHtml(p.keywords)}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:4px;">
+          ${sBadge}
+          <select class="status-select" onchange="changeStatus('${p.id}',this.value)">${options}</select>
+        </div>
+        <button class="delete-btn" onclick="deletePaper('${p.id}')" title="Delete paper">&#x1F5D1;</button>
+      </div>
     </div>
-    <div class="card-authors">${escHtml(p.authors)}</div>
-    <div class="card-meta">
-      <span class="badge ${typeBadge}">${p.type}</span>
-      ${groupBadge}
-    </div>
-    ${p.keywords ? `<div class="card-keywords">Keywords: ${escHtml(p.keywords)}</div>` : ''}
-    <div class="card-footer">
-      <select class="status-select ${selClass}" id="sel-${p.id}"
-              onchange="onStatusChange('${p.id}', this)">
-        ${options}
-      </select>
-      <span class="sync-dot" id="dot-${p.id}"></span>
-      ${p.presenter ? `<span style="font-size:11px;color:#777">Presenter: ${escHtml(p.presenter)}</span>` : ''}
-      ${p.email ? `<a href="mailto:${escHtml(p.email)}" style="font-size:11px;color:#888">✉</a>` : ''}
+    <button class="expand-btn" onclick="toggleExpand('${p.id}')">&#x25BC; Show details</button>
+    <div class="paper-abstract">
+      <div style="padding-top:8px;border-top:1px solid #f0f0f0;margin-top:8px;">
+        ${p.organizer?`<div style="font-size:12px;color:#718096;margin-bottom:4px;"><strong>Organizer:</strong> ${escHtml(p.organizer)}</div>`:''}
+        ${p.chair?`<div style="font-size:12px;color:#718096;margin-bottom:4px;"><strong>Chair:</strong> ${escHtml(p.chair)}</div>`:''}
+        ${p.pdf?`<div style="margin-top:8px;"><a href="papers/${encodeURIComponent(p.pdf)}" target="_blank" class="btn btn-primary" style="font-size:12px;padding:5px 12px;display:inline-block;text-decoration:none;">&#x1F4C4; Open PDF: ${escHtml(p.pdf)}</a></div>`:''}
+      </div>
     </div>
   </div>`;
 }
 
-function onStatusChange(id, sel) {
-  const status = sel.value;
-  paperStates[id] = status;
-  sel.className = 'status-select ' + (STATUS_CLASS[status] || 's-pending');
-  saveStatus(id, status);
-  updateCounters();
+function toggleExpand(id) {
+  const card = document.getElementById('card-'+id);
+  const btn = card.querySelector('.expand-btn');
+  const expanded = card.classList.toggle('expanded');
+  btn.innerHTML = expanded ? '&#x25B2; Hide details' : '&#x25BC; Show details';
 }
 
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// ── Organized Sessions tab ────────────────────────────────────────────────────
+function renderOrganized() {
+  const groups = {};
+  allPapers.filter(p => p.type==='Organized'||p.type==='Proposed').forEach(p => {
+    const g = p.group||'(no session)';
+    if (!groups[g]) groups[g] = {organizer:p.organizer||'',chair:p.chair||'',papers:[]};
+    groups[g].papers.push(p);
+  });
+  let html = '';
+  for (const [gname, gdata] of Object.entries(groups)) {
+    html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;margin-bottom:16px;">
+      <div style="font-size:16px;font-weight:700;color:#1a365d;margin-bottom:4px;">${escHtml(gname)}</div>
+      ${gdata.organizer?`<div style="font-size:12px;color:#718096;margin-bottom:2px;">Organizer: ${escHtml(gdata.organizer)}</div>`:''}
+      ${gdata.chair?`<div style="font-size:12px;color:#718096;margin-bottom:8px;">Chair: ${escHtml(gdata.chair)}</div>`:''}
+      ${gdata.papers.map(p => {
+        const s = paperStates[p.id]||'Pending';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #f0f0f0;">
+          <span style="width:8px;height:8px;border-radius:50%;background:${STATUS_COLOR[s]};flex-shrink:0;display:inline-block;"></span>
+          <span style="flex:1;font-size:13px;">${escHtml(p.title)}</span>
+          ${p.pdf?`<a href="papers/${encodeURIComponent(p.pdf)}" target="_blank" style="font-size:11px;color:#4299e1;text-decoration:none;">PDF</a>`:''}
+          <select class="status-select" onchange="changeStatus('${p.id}',this.value)" style="font-size:12px;">
+            ${STATUSES.map(st=>`<option value="${st}" ${st===s?'selected':''}>${STATUS_LABEL[st]}</option>`).join('')}
+          </select>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  document.getElementById('organizedList').innerHTML = html || '<div class="empty-state">No organized/proposed sessions found.</div>';
 }
 
-// ── Counters ──────────────────────────────────────────────────────────────────
-function updateCounters() {
-  const counts = {Pending:0,Accept:0,Poster:0,Waitlist:0,Reject:0,Withdrawn:0};
-  PAPERS.forEach(p => { const s = paperStates[p.id] || 'Pending'; if (counts[s]!==undefined) counts[s]++; });
-  const total = PAPERS.length;
-  document.getElementById('statTotal').textContent   = total;
-  document.getElementById('statAccept').textContent  = counts.Accept + counts.Poster;
-  document.getElementById('statReject').textContent  = counts.Reject;
-  document.getElementById('statPending').textContent = counts.Pending;
+// ── Add / Delete ──────────────────────────────────────────────────────────────
+function openAddPaper() {
+  ['ap_title','ap_authors','ap_presenter','ap_email','ap_affiliation','ap_group','ap_keywords','ap_pdf']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ap_type').value = 'Individual';
+  document.getElementById('addPaperModal').classList.add('visible');
+}
+function submitAddPaper() {
+  const title = document.getElementById('ap_title').value.trim();
+  const authors = document.getElementById('ap_authors').value.trim();
+  if (!title || !authors) { alert('Title and Authors are required.'); return; }
+  const id = 'C' + Date.now();
+  const paper = {
+    id, title, authors,
+    presenter:   document.getElementById('ap_presenter').value.trim(),
+    email:       document.getElementById('ap_email').value.trim(),
+    affiliation: document.getElementById('ap_affiliation').value.trim(),
+    type:        document.getElementById('ap_type').value,
+    group:       document.getElementById('ap_group').value.trim(),
+    organizer: '', chair: '',
+    keywords:    document.getElementById('ap_keywords').value.trim(),
+    pdf:         document.getElementById('ap_pdf').value.trim(),
+  };
+  db.ref(`${NODE}/custom_papers/${id}`).set(paper);
+  db.ref(`${NODE}/changes`).push({ts:Date.now(),user:currentUser,id,title,from:'—',to:'Added'});
+  closeModal('addPaperModal');
+}
+function deletePaper(id) {
+  const paper = allPapers.find(p => p.id===id);
+  if (!confirm(`Delete "${paper?paper.title:id}"?\nThis is visible to all users.`)) return;
+  db.ref(`${NODE}/deleted_ids/${id}`).set(true);
+  if (customPapers[id]) db.ref(`${NODE}/custom_papers/${id}`).remove();
+  db.ref(`${NODE}/changes`).push({ts:Date.now(),user:currentUser,id,title:paper?paper.title:id,from:paperStates[id]||'Pending',to:'Deleted'});
+}
 
-  document.getElementById('cntAll').textContent       = total;
-  document.getElementById('cntPending').textContent   = counts.Pending;
-  document.getElementById('cntAccept').textContent    = counts.Accept;
-  document.getElementById('cntPoster').textContent    = counts.Poster;
-  document.getElementById('cntWaitlist').textContent  = counts.Waitlist;
-  document.getElementById('cntReject').textContent    = counts.Reject;
-  document.getElementById('cntWithdrawn').textContent = counts.Withdrawn;
+// ── Change log ────────────────────────────────────────────────────────────────
+function renderChangeLog() {
+  const rows = changes.map(c => `
+    <div class="change-log-item">
+      <span style="color:#a0aec0;white-space:nowrap;">${new Date(c.ts).toLocaleString()}</span>
+      <span style="font-weight:600;">${escHtml(c.user||'?')}</span>
+      <span style="flex:1;color:#4a5568;">${escHtml(c.title)}</span>
+      <span class="from">${escHtml(c.from)}</span>
+      <span style="color:#a0aec0;">&#x2192;</span>
+      <span class="to">${escHtml(c.to)}</span>
+    </div>`).join('');
+  document.getElementById('changeLogTab').innerHTML = rows||'<div class="empty-state">No changes yet.</div>';
+}
+function showChangeLog() {
+  document.getElementById('changeLogModal_content').innerHTML =
+    document.getElementById('changeLogTab').innerHTML;
+  document.getElementById('changeLogModal').classList.add('visible');
+}
+
+// ── Notes ────────────────────────────────────────────────────────────────────
+function postNote() {
+  const text = document.getElementById('newNoteText').value.trim();
+  if (!text) return;
+  db.ref(`${NODE}/notes`).push({ts:Date.now(),user:currentUser,text});
+  document.getElementById('newNoteText').value = '';
+}
+function renderNotes(data) {
+  const notes = Object.values(data).sort((a,b)=>b.ts-a.ts);
+  document.getElementById('notesList').innerHTML = notes.map(n => `
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <strong style="color:#1a365d;">${escHtml(n.user||'?')}</strong>
+        <span style="color:#a0aec0;font-size:12px;">${new Date(n.ts).toLocaleString()}</span>
+      </div>
+      <div style="font-size:14px;color:#2d3748;line-height:1.5;">${escHtml(n.text)}</div>
+    </div>`).join('') || '<div class="empty-state">No notes yet.</div>';
 }
 
 // ── Exports ───────────────────────────────────────────────────────────────────
 function exportCSV() {
-  let csv = 'ID,Title,Authors,Presenter,Email,Affiliation,Type,Group,Status,Keywords\n';
-  PAPERS.forEach(p => {
-    const row = [p.id, p.title, p.authors, p.presenter, p.email, p.affiliation,
-                 p.type, p.group, paperStates[p.id]||'Pending', p.keywords]
-      .map(v => '"' + String(v||'').replace(/"/g,'""') + '"').join(',');
-    csv += row + '\n';
+  let csv = 'ID,Title,Authors,Presenter,Email,Affiliation,Type,Group,Status,Keywords,PDF\n';
+  allPapers.forEach(p => {
+    const row = [p.id,p.title,p.authors,p.presenter||'',p.email||'',p.affiliation||'',
+                 p.type,p.group||'',paperStates[p.id]||'Pending',p.keywords||'',p.pdf||'']
+      .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+    csv += row+'\n';
   });
-  downloadCSV(csv, 'ces2027_assa_all_papers.csv');
+  dlCSV(csv,'ces2027_assa_all_papers.csv');
 }
-
-function exportAcceptedCSV() {
-  const accepted = PAPERS.filter(p => paperStates[p.id] === 'Accept' || paperStates[p.id] === 'Poster');
-  if (!accepted.length) { alert('No accepted papers yet.'); return; }
-  let csv = 'ID,Title,Authors,Presenter,Email,Affiliation,Type,Group,Status,Keywords\n';
-  accepted.forEach(p => {
-    const row = [p.id, p.title, p.authors, p.presenter, p.email, p.affiliation,
-                 p.type, p.group, paperStates[p.id], p.keywords]
-      .map(v => '"' + String(v||'').replace(/"/g,'""') + '"').join(',');
-    csv += row + '\n';
+function exportChangesCSV() {
+  let csv = 'Timestamp,User,ID,Title,From,To\n';
+  changes.forEach(c => {
+    csv += [new Date(c.ts).toISOString(),c.user||'',c.id,c.title,c.from,c.to]
+      .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')+'\n';
   });
-  downloadCSV(csv, 'ces2027_assa_accepted.csv');
+  dlCSV(csv,'ces2027_assa_changes.csv');
+}
+function dlCSV(csv,name){const b=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();}
+function resetAll() {
+  if (!confirm('Reset ALL statuses to Pending? This affects all users.')) return;
+  allPapers.forEach(p => { paperStates[p.id]='Pending'; });
+  db.ref(`${NODE}/states`).set({});
+  updateStats(); applyFilters(); renderOrganized();
 }
 
-function downloadCSV(csv, filename) {
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  ['all','organized','changes','notes'].forEach(t => {
+    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).style.display = t===tab?'':'none';
+    document.querySelector(`.tab[data-tab="${t}"]`).classList.toggle('active',t===tab);
+  });
 }
 
-function resetAllStatus() {
-  if (!confirm('Reset ALL papers to Pending? This cannot be undone.')) return;
-  PAPERS.forEach(p => { paperStates[p.id] = 'Pending'; });
-  db.ref(`${FB_NODE}/states`).set({});
-  updateCounters();
-  renderCards();
-}
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function closeModal(id){ document.getElementById(id).classList.remove('visible'); }
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-PAPERS.forEach(p => { paperStates[p.id] = 'Pending'; });
-loadFromFirebase();
+// ── Init (offline fallback) ───────────────────────────────────────────────────
+BASE_PAPERS.forEach(p => { paperStates[p.id] = 'Pending'; });
+updateStats(); applyFilters(); renderOrganized();
 </script>
 </body>
 </html>
