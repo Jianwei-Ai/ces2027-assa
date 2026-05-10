@@ -1224,18 +1224,46 @@ const BASE_PAPERS = [
 ];
 
 // ── Runtime state ────────────────────────────────────────────────────────────
-let allPapers = [...BASE_PAPERS];          // base + added
-let paperStates = {};                      // id -> status
-let customPapers = {};                     // id -> paper (added via UI)
-let deletedIds   = new Set();              // ids deleted via UI
-let changes = [];                          // {ts, user, id, title, from, to}
+let allPapers = [...BASE_PAPERS];
+let paperStates = {};
+let customPapers = {};
+let deletedIds   = new Set();
+let changes = [];
 let currentUser = null;
 let presenceRef = null;
+let firebaseOk  = false;
 
 const STATUSES = ['Pending','Accept','Poster','Waitlist','Reject'];
 const STATUS_LABEL = {Pending:'Pending',Accept:'Accept (Oral)',Poster:'Accept (Poster)',Waitlist:'Waitlist',Reject:'Reject'};
 const STATUS_CLASS  = {Pending:'',Accept:'status-accept',Poster:'status-poster',Waitlist:'status-waitlist',Reject:'status-reject'};
 const STATUS_COLOR  = {Pending:'#a0aec0',Accept:'#48bb78',Poster:'#4299e1',Waitlist:'#ecc94b',Reject:'#fc8181'};
+
+// ── localStorage helpers ──────────────────────────────────────────────────────
+const LS_STATES  = 'ces2027_states';
+const LS_CHANGES = 'ces2027_changes';
+const LS_CUSTOM  = 'ces2027_custom';
+const LS_DELETED = 'ces2027_deleted';
+
+function lsSave() {
+  try {
+    localStorage.setItem(LS_STATES,  JSON.stringify(paperStates));
+    localStorage.setItem(LS_CHANGES, JSON.stringify(changes.slice(0, 300)));
+    localStorage.setItem(LS_CUSTOM,  JSON.stringify(customPapers));
+    localStorage.setItem(LS_DELETED, JSON.stringify([...deletedIds]));
+  } catch(e) {}
+}
+function lsLoad() {
+  try {
+    const st = JSON.parse(localStorage.getItem(LS_STATES)  || '{}');
+    const ch = JSON.parse(localStorage.getItem(LS_CHANGES) || '[]');
+    const cu = JSON.parse(localStorage.getItem(LS_CUSTOM)  || '{}');
+    const de = JSON.parse(localStorage.getItem(LS_DELETED) || '[]');
+    Object.assign(paperStates, st);
+    if (ch.length) { changes = ch; }
+    Object.assign(customPapers, cu);
+    deletedIds = new Set(de);
+  } catch(e) {}
+}
 
 // ── Auth / login ─────────────────────────────────────────────────────────────
 function showLogin() {
@@ -1248,8 +1276,7 @@ function doLogin(name) {
   document.getElementById('roleOverlay').style.display  = 'none';
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('currentUserDisplay').textContent = name;
-  const badge = document.getElementById('userBadge');
-  badge.style.display = 'flex';
+  document.getElementById('userBadge').style.display = 'flex';
   initFirebase();
 }
 function doLogout() {
@@ -1264,54 +1291,70 @@ window.addEventListener('load', () => {
   if (saved) { doLogin(saved); } else { document.getElementById('roleOverlay').style.display = 'flex'; }
 });
 
-// ── Firebase init ─────────────────────────────────────────────────────────────
+// ── Firebase init (localStorage-first, Firebase optional) ────────────────────
 function initFirebase() {
   setSyncState('syncing');
-  // States
+
+  // Load localStorage immediately — portal is usable right away
+  lsLoad();
+  rebuildPapers();
+  document.getElementById('changeCount').textContent = changes.length;
+  renderChangeLog();
+
+  // Try Firebase; fall back to local-only after 6 seconds
+  const fbTimeout = setTimeout(() => {
+    if (!firebaseOk) setSyncState('local');
+  }, 6000);
+
+  const onFbError = () => { clearTimeout(fbTimeout); if (!firebaseOk) setSyncState('local'); };
+
   db.ref(`${NODE}/states`).on('value', snap => {
+    clearTimeout(fbTimeout);
+    firebaseOk = true;
     const data = snap.val() || {};
-    allPapers.forEach(p => { paperStates[p.id] = data[p.id] || 'Pending'; });
+    // Firebase wins: overwrite local states with remote
+    allPapers.forEach(p => { paperStates[p.id] = data[p.id] || paperStates[p.id] || 'Pending'; });
+    lsSave();
     updateStats(); applyFilters(); renderOrganized();
     setSyncState('connected');
-  });
-  // Custom papers (added via UI)
+  }, onFbError);
+
   db.ref(`${NODE}/custom_papers`).on('value', snap => {
     customPapers = snap.val() || {};
-    rebuildPapers();
-  });
-  // Deleted papers
+    lsSave(); rebuildPapers();
+  }, onFbError);
+
   db.ref(`${NODE}/deleted_ids`).on('value', snap => {
     const d = snap.val() || {};
     deletedIds = new Set(Object.keys(d).filter(k => d[k]));
-    rebuildPapers();
-  });
-  // Changes log
+    lsSave(); rebuildPapers();
+  }, onFbError);
+
   db.ref(`${NODE}/changes`).on('value', snap => {
     const raw = snap.val() || {};
     changes = Object.values(raw).sort((a,b) => b.ts - a.ts);
+    lsSave();
     document.getElementById('changeCount').textContent = changes.length;
     renderChangeLog();
-  });
-  // Notes
-  db.ref(`${NODE}/notes`).on('value', snap => { renderNotes(snap.val() || {}); });
-  // Online presence
+  }, onFbError);
+
+  db.ref(`${NODE}/notes`).on('value', snap => { renderNotes(snap.val() || {}); }, onFbError);
+
   const uid = Date.now() + '_' + Math.random().toString(36).slice(2,6);
   presenceRef = db.ref(`${NODE}/online/${uid}`);
-  presenceRef.set(currentUser);
+  presenceRef.set(currentUser).catch(() => {});
   presenceRef.onDisconnect().remove();
   db.ref(`${NODE}/online`).on('value', snap => {
     const users = snap.val() || {};
-    const el = document.getElementById('onlineUsers');
-    el.innerHTML = Object.values(users).map(u =>
-      `<span class="online-user-badge">&#x1F7E2; ${escHtml(u)}</span>`).join('');
-  });
+    document.getElementById('onlineUsers').innerHTML =
+      Object.values(users).map(u => `<span class="online-user-badge">&#x1F7E2; ${escHtml(u)}</span>`).join('');
+  }, () => {});
 }
 
 function rebuildPapers() {
   allPapers = [...BASE_PAPERS, ...Object.values(customPapers)]
     .filter(p => !deletedIds.has(p.id));
   document.getElementById('paperCountSubtitle').textContent = allPapers.length;
-  // Ensure states exist for all
   allPapers.forEach(p => { if (!paperStates[p.id]) paperStates[p.id] = 'Pending'; });
   updateStats(); applyFilters(); renderOrganized();
 }
@@ -1319,9 +1362,10 @@ function rebuildPapers() {
 function setSyncState(state) {
   const dot = document.getElementById('syncDot');
   const txt = document.getElementById('syncText');
-  if (state === 'connected') { dot.className = 'sync-dot connected'; txt.textContent = 'Live'; }
-  else if (state === 'syncing') { dot.className = 'sync-dot syncing'; txt.textContent = 'Syncing…'; }
-  else { dot.className = 'sync-dot disconnected'; txt.textContent = 'Offline'; }
+  if      (state === 'connected') { dot.className = 'sync-dot connected';    txt.textContent = 'Live'; }
+  else if (state === 'syncing')   { dot.className = 'sync-dot syncing';      txt.textContent = 'Syncing…'; }
+  else if (state === 'local')     { dot.className = 'sync-dot disconnected'; txt.textContent = 'Local'; }
+  else                            { dot.className = 'sync-dot disconnected'; txt.textContent = 'Offline'; }
 }
 
 // ── Status change ─────────────────────────────────────────────────────────────
@@ -1329,10 +1373,16 @@ function changeStatus(id, newStatus) {
   const oldStatus = paperStates[id] || 'Pending';
   if (oldStatus === newStatus) return;
   paperStates[id] = newStatus;
-  db.ref(`${NODE}/states/${id}`).set(newStatus);
   const paper = allPapers.find(p => p.id === id);
   const entry = { ts: Date.now(), user: currentUser, id, title: paper ? paper.title : id, from: oldStatus, to: newStatus };
-  db.ref(`${NODE}/changes`).push(entry);
+  changes.unshift(entry);
+  lsSave();  // always save locally first
+  if (firebaseOk) {
+    db.ref(`${NODE}/states/${id}`).set(newStatus);
+    db.ref(`${NODE}/changes`).push(entry);
+  }
+  document.getElementById('changeCount').textContent = changes.length;
+  renderChangeLog();
   updateStats(); applyFilters(); renderOrganized();
 }
 
@@ -1514,16 +1564,31 @@ function submitAddPaper() {
     keywords:    document.getElementById('ap_keywords').value.trim(),
     pdf:         document.getElementById('ap_pdf').value.trim(),
   };
-  db.ref(`${NODE}/custom_papers/${id}`).set(paper);
-  db.ref(`${NODE}/changes`).push({ts:Date.now(),user:currentUser,id,title,from:'—',to:'Added'});
+  const entry = {ts:Date.now(),user:currentUser,id,title,from:'—',to:'Added'};
+  customPapers[id] = paper;
+  changes.unshift(entry);
+  lsSave();
+  if (firebaseOk) {
+    db.ref(`${NODE}/custom_papers/${id}`).set(paper);
+    db.ref(`${NODE}/changes`).push(entry);
+  }
   closeModal('addPaperModal');
+  rebuildPapers();
 }
 function deletePaper(id) {
   const paper = allPapers.find(p => p.id===id);
   if (!confirm(`Delete "${paper?paper.title:id}"?\nThis is visible to all users.`)) return;
-  db.ref(`${NODE}/deleted_ids/${id}`).set(true);
-  if (customPapers[id]) db.ref(`${NODE}/custom_papers/${id}`).remove();
-  db.ref(`${NODE}/changes`).push({ts:Date.now(),user:currentUser,id,title:paper?paper.title:id,from:paperStates[id]||'Pending',to:'Deleted'});
+  const entry = {ts:Date.now(),user:currentUser,id,title:paper?paper.title:id,from:paperStates[id]||'Pending',to:'Deleted'};
+  deletedIds.add(id);
+  if (customPapers[id]) delete customPapers[id];
+  changes.unshift(entry);
+  lsSave();
+  if (firebaseOk) {
+    db.ref(`${NODE}/deleted_ids/${id}`).set(true);
+    if (customPapers[id]) db.ref(`${NODE}/custom_papers/${id}`).remove();
+    db.ref(`${NODE}/changes`).push(entry);
+  }
+  rebuildPapers();
 }
 
 // ── Change log ────────────────────────────────────────────────────────────────
@@ -1587,7 +1652,8 @@ function dlCSV(csv,name){const b=new Blob([csv],{type:'text/csv'});const a=docum
 function resetAll() {
   if (!confirm('Reset ALL statuses to Pending? This affects all users.')) return;
   allPapers.forEach(p => { paperStates[p.id]='Pending'; });
-  db.ref(`${NODE}/states`).set({});
+  lsSave();
+  if (firebaseOk) db.ref(`${NODE}/states`).set({});
   updateStats(); applyFilters(); renderOrganized();
 }
 
@@ -1603,8 +1669,8 @@ function switchTab(tab) {
 function closeModal(id){ document.getElementById(id).classList.remove('visible'); }
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ── Init (offline fallback) ───────────────────────────────────────────────────
-BASE_PAPERS.forEach(p => { paperStates[p.id] = 'Pending'; });
+// ── Init (pre-login render with localStorage) ────────────────────────────────
+BASE_PAPERS.forEach(p => { if (!paperStates[p.id]) paperStates[p.id] = 'Pending'; });
 updateStats(); applyFilters(); renderOrganized();
 </script>
 </body>
