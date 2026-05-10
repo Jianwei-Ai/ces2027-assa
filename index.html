@@ -320,6 +320,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </div>
     <div class="form-group"><label>Session / Group Name</label><input type="text" id="ap_group" placeholder="e.g. Education Economics Session"></div>
     <div class="form-group"><label>Keywords</label><input type="text" id="ap_keywords" placeholder="keyword1; keyword2"></div>
+    <div class="form-group"><label>Abstract</label><textarea id="ap_abstract" rows="4" placeholder="Paste the paper abstract here..."></textarea></div>
     <div class="form-group"><label>PDF filename (in papers/ folder)</label><input type="text" id="ap_pdf" placeholder="filename.pdf"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn" onclick="closeModal('addPaperModal')">Cancel</button>
@@ -1226,6 +1227,7 @@ const BASE_PAPERS = [
 // ── Runtime state ────────────────────────────────────────────────────────────
 let allPapers = [...BASE_PAPERS];
 let paperStates = {};
+let paperAbstracts = {};
 let customPapers = {};
 let deletedIds   = new Set();
 let changes = [];
@@ -1239,28 +1241,32 @@ const STATUS_CLASS  = {Pending:'',Accept:'status-accept',Poster:'status-poster',
 const STATUS_COLOR  = {Pending:'#a0aec0',Accept:'#48bb78',Poster:'#4299e1',Waitlist:'#ecc94b',Reject:'#fc8181'};
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
-const LS_STATES  = 'ces2027_states';
-const LS_CHANGES = 'ces2027_changes';
-const LS_CUSTOM  = 'ces2027_custom';
-const LS_DELETED = 'ces2027_deleted';
+const LS_STATES    = 'ces2027_states';
+const LS_CHANGES   = 'ces2027_changes';
+const LS_CUSTOM    = 'ces2027_custom';
+const LS_DELETED   = 'ces2027_deleted';
+const LS_ABSTRACTS = 'ces2027_abstracts';
 
 function lsSave() {
   try {
-    localStorage.setItem(LS_STATES,  JSON.stringify(paperStates));
-    localStorage.setItem(LS_CHANGES, JSON.stringify(changes.slice(0, 300)));
-    localStorage.setItem(LS_CUSTOM,  JSON.stringify(customPapers));
-    localStorage.setItem(LS_DELETED, JSON.stringify([...deletedIds]));
+    localStorage.setItem(LS_STATES,    JSON.stringify(paperStates));
+    localStorage.setItem(LS_CHANGES,   JSON.stringify(changes.slice(0, 300)));
+    localStorage.setItem(LS_CUSTOM,    JSON.stringify(customPapers));
+    localStorage.setItem(LS_DELETED,   JSON.stringify([...deletedIds]));
+    localStorage.setItem(LS_ABSTRACTS, JSON.stringify(paperAbstracts));
   } catch(e) {}
 }
 function lsLoad() {
   try {
-    const st = JSON.parse(localStorage.getItem(LS_STATES)  || '{}');
-    const ch = JSON.parse(localStorage.getItem(LS_CHANGES) || '[]');
-    const cu = JSON.parse(localStorage.getItem(LS_CUSTOM)  || '{}');
-    const de = JSON.parse(localStorage.getItem(LS_DELETED) || '[]');
+    const st = JSON.parse(localStorage.getItem(LS_STATES)    || '{}');
+    const ch = JSON.parse(localStorage.getItem(LS_CHANGES)   || '[]');
+    const cu = JSON.parse(localStorage.getItem(LS_CUSTOM)    || '{}');
+    const de = JSON.parse(localStorage.getItem(LS_DELETED)   || '[]');
+    const ab = JSON.parse(localStorage.getItem(LS_ABSTRACTS) || '{}');
     Object.assign(paperStates, st);
     if (ch.length) { changes = ch; }
     Object.assign(customPapers, cu);
+    Object.assign(paperAbstracts, ab);
     deletedIds = new Set(de);
   } catch(e) {}
 }
@@ -1339,6 +1345,18 @@ function initFirebase() {
   }, onFbError);
 
   db.ref(`${NODE}/notes`).on('value', snap => { renderNotes(snap.val() || {}); }, onFbError);
+
+  db.ref(`${NODE}/abstracts`).on('value', snap => {
+    const data = snap.val() || {};
+    Object.assign(paperAbstracts, data);
+    lsSave();
+    // refresh any currently expanded cards
+    document.querySelectorAll('.paper-card.expanded').forEach(card => {
+      const id = card.id.replace('card-','');
+      const absEl = card.querySelector('.abstract-text');
+      if (absEl) absEl.textContent = paperAbstracts[id] || '';
+    });
+  }, () => {});
 
   const uid = Date.now() + '_' + Math.random().toString(36).slice(2,6);
   presenceRef = db.ref(`${NODE}/online/${uid}`);
@@ -1498,6 +1516,23 @@ function renderCard(p) {
       <div style="padding-top:8px;border-top:1px solid #f0f0f0;margin-top:8px;">
         ${p.organizer?`<div style="font-size:12px;color:#718096;margin-bottom:4px;"><strong>Organizer:</strong> ${escHtml(p.organizer)}</div>`:''}
         ${p.chair?`<div style="font-size:12px;color:#718096;margin-bottom:4px;"><strong>Chair:</strong> ${escHtml(p.chair)}</div>`:''}
+        <div style="margin-top:10px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:12px;font-weight:600;color:#4a5568;">Abstract</span>
+            <button onclick="editAbstract('${p.id}')" style="background:none;border:1px solid #cbd5e0;border-radius:4px;color:#718096;font-size:11px;padding:1px 7px;cursor:pointer;">&#x270F; Edit</button>
+          </div>
+          <div id="abs-view-${p.id}">
+            <div class="abstract-text" style="font-size:13px;color:#4a5568;line-height:1.6;white-space:pre-wrap;">${escHtml(paperAbstracts[p.id]||'')}</div>
+            ${!paperAbstracts[p.id]?`<div style="font-size:12px;color:#a0aec0;font-style:italic;">尚无摘要 — 点击 Edit 粘贴</div>`:''}
+          </div>
+          <div id="abs-edit-${p.id}" style="display:none;">
+            <textarea id="abs-ta-${p.id}" rows="5" style="width:100%;padding:8px;border:1px solid #4299e1;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;">${escHtml(paperAbstracts[p.id]||'')}</textarea>
+            <div style="display:flex;gap:6px;margin-top:4px;">
+              <button onclick="saveAbstract('${p.id}')" class="btn btn-success" style="font-size:12px;padding:4px 12px;">&#x2713; 保存</button>
+              <button onclick="cancelAbstract('${p.id}')" class="btn" style="font-size:12px;padding:4px 12px;">取消</button>
+            </div>
+          </div>
+        </div>
         ${p.pdf?`<div style="margin-top:8px;"><a href="papers/${encodeURIComponent(p.pdf)}" target="_blank" class="btn btn-primary" style="font-size:12px;padding:5px 12px;display:inline-block;text-decoration:none;">&#x1F4C4; Open PDF: ${escHtml(p.pdf)}</a></div>`:''}
       </div>
     </div>
@@ -1509,6 +1544,29 @@ function toggleExpand(id) {
   const btn = card.querySelector('.expand-btn');
   const expanded = card.classList.toggle('expanded');
   btn.innerHTML = expanded ? '&#x25B2; Hide details' : '&#x25BC; Show details';
+}
+
+function editAbstract(id) {
+  document.getElementById('abs-view-'+id).style.display = 'none';
+  document.getElementById('abs-edit-'+id).style.display = 'block';
+  document.getElementById('abs-ta-'+id).focus();
+}
+function cancelAbstract(id) {
+  document.getElementById('abs-edit-'+id).style.display = 'none';
+  document.getElementById('abs-view-'+id).style.display = 'block';
+}
+function saveAbstract(id) {
+  const text = document.getElementById('abs-ta-'+id).value.trim();
+  paperAbstracts[id] = text;
+  lsSave();
+  if (firebaseOk) db.ref(`${NODE}/abstracts/${id}`).set(text || null);
+  // update view
+  const viewEl = document.getElementById('abs-view-'+id);
+  viewEl.innerHTML = text
+    ? `<div class="abstract-text" style="font-size:13px;color:#4a5568;line-height:1.6;white-space:pre-wrap;">${escHtml(text)}</div>`
+    : `<div class="abstract-text" style="font-size:13px;color:#4a5568;line-height:1.6;white-space:pre-wrap;"></div><div style="font-size:12px;color:#a0aec0;font-style:italic;">尚无摘要 — 点击 Edit 粘贴</div>`;
+  document.getElementById('abs-edit-'+id).style.display = 'none';
+  viewEl.style.display = 'block';
 }
 
 // ── Organized Sessions tab ────────────────────────────────────────────────────
@@ -1543,7 +1601,7 @@ function renderOrganized() {
 
 // ── Add / Delete ──────────────────────────────────────────────────────────────
 function openAddPaper() {
-  ['ap_title','ap_authors','ap_presenter','ap_email','ap_affiliation','ap_group','ap_keywords','ap_pdf']
+  ['ap_title','ap_authors','ap_presenter','ap_email','ap_affiliation','ap_group','ap_keywords','ap_abstract','ap_pdf']
     .forEach(id => document.getElementById(id).value = '');
   document.getElementById('ap_type').value = 'Individual';
   document.getElementById('addPaperModal').classList.add('visible');
@@ -1564,13 +1622,16 @@ function submitAddPaper() {
     keywords:    document.getElementById('ap_keywords').value.trim(),
     pdf:         document.getElementById('ap_pdf').value.trim(),
   };
+  const abstract = document.getElementById('ap_abstract').value.trim();
   const entry = {ts:Date.now(),user:currentUser,id,title,from:'—',to:'Added'};
   customPapers[id] = paper;
+  if (abstract) paperAbstracts[id] = abstract;
   changes.unshift(entry);
   lsSave();
   if (firebaseOk) {
     db.ref(`${NODE}/custom_papers/${id}`).set(paper);
     db.ref(`${NODE}/changes`).push(entry);
+    if (abstract) db.ref(`${NODE}/abstracts/${id}`).set(abstract);
   }
   closeModal('addPaperModal');
   rebuildPapers();
